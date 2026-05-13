@@ -1,2179 +1,1106 @@
-import { useState, useEffect, useRef, useCallback } from “react”;
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TikTokAI - AI Video Generator</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+  
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-// ── Fonts via Google ──────────────────────────────────────────────────────────
-const fontLink = document.createElement(“link”);
-fontLink.rel = “stylesheet”;
-fontLink.href = “https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap”;
-document.head.appendChild(fontLink);
+    :root {
+      --bg: #050507;
+      --bg2: #0c0c10;
+      --bg3: #13131a;
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.12);
+      --text: #f0f0f5;
+      --muted: #7a7a90;
+      --accent: #ff2d55;
+      --accent2: #ff6b35;
+      --accent3: #bf5af2;
+      --teal: #30d158;
+      --blue: #0a84ff;
+      --glow: rgba(255,45,85,0.4);
+      --glow2: rgba(191,90,242,0.3);
+      --gold: #ffd60a;
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-lg: 24px;
+    }
 
-// ── CSS injection ─────────────────────────────────────────────────────────────
-const css = `
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
 
-:root {
-–bg: #050507;
-–bg2: #0c0c10;
-–bg3: #13131a;
-–border: rgba(255,255,255,0.07);
-–border2: rgba(255,255,255,0.12);
-–text: #f0f0f5;
-–muted: #7a7a90;
-–accent: #ff2d55;
-–accent2: #ff6b35;
-–accent3: #bf5af2;
-–teal: #30d158;
-–blue: #0a84ff;
-–glow: rgba(255,45,85,0.4);
-–glow2: rgba(191,90,242,0.3);
-–gold: #ffd60a;
-–font-display: ‘Syne’, sans-serif;
-–font-body: ‘DM Sans’, sans-serif;
-–radius: 16px;
-–radius-sm: 10px;
-–radius-lg: 24px;
-}
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
 
-html, body, #root { height: 100%; }
-body {
-background: var(–bg);
-color: var(–text);
-font-family: var(–font-body);
--webkit-font-smoothing: antialiased;
-overflow-x: hidden;
-}
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(24px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity:0; } to { opacity:1; }
+    }
+    @keyframes pulse-glow {
+      0%,100% { box-shadow: 0 0 20px var(--glow), 0 0 60px rgba(255,45,85,0.15); }
+      50%      { box-shadow: 0 0 40px var(--glow), 0 0 100px rgba(255,45,85,0.25); }
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0px); }
+      50%      { transform: translateY(-12px); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes gradShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes shimmer {
+      from { background-position: -200% 0; }
+      to   { background-position: 200% 0; }
+    }
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(–bg2); }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    .animate-fade-up    { animation: fadeUp 0.6s ease forwards; }
+    .animate-fade-in    { animation: fadeIn 0.4s ease forwards; }
+    .animate-float      { animation: float 4s ease-in-out infinite; }
+    .animate-pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
+    .animate-spin-slow  { animation: spin 8s linear infinite; }
 
-/* Animations */
-@keyframes fadeUp {
-from { opacity:0; transform:translateY(24px); }
-to   { opacity:1; transform:translateY(0); }
-}
-@keyframes fadeIn {
-from { opacity:0; } to { opacity:1; }
-}
-@keyframes pulse-glow {
-0%,100% { box-shadow: 0 0 20px var(–glow), 0 0 60px rgba(255,45,85,0.15); }
-50%      { box-shadow: 0 0 40px var(–glow), 0 0 100px rgba(255,45,85,0.25); }
-}
-@keyframes float {
-0%,100% { transform: translateY(0px); }
-50%      { transform: translateY(-12px); }
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes gradShift {
-0%   { background-position: 0% 50%; }
-50%  { background-position: 100% 50%; }
-100% { background-position: 0% 50%; }
-}
-@keyframes shimmer {
-from { background-position: -200% 0; }
-to   { background-position: 200% 0; }
-}
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-@keyframes scanline {
-0% { transform: translateY(-100%); }
-100% { transform: translateY(100vh); }
-}
-@keyframes progress {
-from { width: 0%; }
-}
-@keyframes ticker {
-from { transform: translateX(0); }
-to   { transform: translateX(-50%); }
-}
+    .grad-text {
+      background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+      background-size: 200% 200%;
+      animation: gradShift 4s ease infinite;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .grad-text-2 {
+      background: linear-gradient(135deg, var(--accent3), var(--blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
 
-.animate-fade-up    { animation: fadeUp 0.6s ease forwards; }
-.animate-fade-in    { animation: fadeIn 0.4s ease forwards; }
-.animate-float      { animation: float 4s ease-in-out infinite; }
-.animate-pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
-.animate-spin-slow  { animation: spin 8s linear infinite; }
+    .glass {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
 
-/* Gradient text */
-.grad-text {
-background: linear-gradient(135deg, var(–accent), var(–accent2), var(–accent3));
-background-size: 200% 200%;
-animation: gradShift 4s ease infinite;
--webkit-background-clip: text;
--webkit-text-fill-color: transparent;
-background-clip: text;
-}
-.grad-text-2 {
-background: linear-gradient(135deg, var(–accent3), var(–blue));
--webkit-background-clip: text;
--webkit-text-fill-color: transparent;
-background-clip: text;
-}
+    .shimmer {
+      background: linear-gradient(90deg, var(--bg3) 25%, #1e1e28 50%, var(--bg3) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
 
-/* Glass card */
-.glass {
-background: rgba(255,255,255,0.03);
-border: 1px solid var(–border);
-backdrop-filter: blur(20px);
--webkit-backdrop-filter: blur(20px);
-}
-.glass-strong {
-background: rgba(255,255,255,0.05);
-border: 1px solid var(–border2);
-backdrop-filter: blur(40px);
-}
+    .glow-red    { box-shadow: 0 0 30px rgba(255,45,85,0.3); }
+    .glow-purple { box-shadow: 0 0 30px rgba(191,90,242,0.3); }
+    .glow-teal   { box-shadow: 0 0 30px rgba(48,209,88,0.3); }
 
-/* Noise overlay */
-.noise::before {
-content:’’;
-position:absolute;
-inset:0;
-background-image:url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 256 256’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘noise’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.9’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23noise)’ opacity=‘0.04’/%3E%3C/svg%3E”);
-pointer-events:none;
-border-radius:inherit;
-}
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #e0234a);
+      color: #fff;
+    }
+    .btn-primary:hover { box-shadow: 0 8px 30px rgba(255,45,85,0.4); transform: translateY(-1px); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border2);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.2); }
+    .btn-gradient {
+      background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+      background-size: 200% 200%;
+      animation: gradShift 3s ease infinite;
+      color: #fff;
+      font-weight: 600;
+    }
+    .btn-gradient:hover { box-shadow: 0 12px 40px rgba(255,45,85,0.5); transform: translateY(-2px); }
+    .btn-teal { background: var(--teal); color: #000; font-weight: 600; }
+    .btn-teal:hover { box-shadow: 0 8px 30px rgba(48,209,88,0.4); transform: translateY(-1px); }
 
-/* Shimmer skeleton */
-.shimmer {
-background: linear-gradient(90deg, var(–bg3) 25%, #1e1e28 50%, var(–bg3) 75%);
-background-size: 200% 100%;
-animation: shimmer 1.5s infinite;
-}
+    .input {
+      width:100%;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 14px;
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input:focus { border-color: var(--accent); }
+    .input::placeholder { color: var(--muted); }
+    textarea.input { resize: vertical; min-height: 100px; }
 
-/* Glow effects */
-.glow-red    { box-shadow: 0 0 30px rgba(255,45,85,0.3); }
-.glow-purple { box-shadow: 0 0 30px rgba(191,90,242,0.3); }
-.glow-teal   { box-shadow: 0 0 30px rgba(48,209,88,0.3); }
+    .badge {
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:600;
+    }
+    .badge-red    { background:rgba(255,45,85,0.15);  color:var(--accent); }
+    .badge-purple { background:rgba(191,90,242,0.15); color:var(--accent3); }
+    .badge-teal   { background:rgba(48,209,88,0.15);  color:var(--teal); }
+    .badge-gold   { background:rgba(255,214,10,0.15); color:var(--gold); }
+    .badge-blue   { background:rgba(10,132,255,0.15); color:var(--blue); }
 
-/* Button base */
-.btn {
-display: inline-flex;
-align-items: center;
-gap: 8px;
-padding: 12px 24px;
-border-radius: var(–radius-sm);
-font-family: var(–font-body);
-font-size: 15px;
-font-weight: 500;
-cursor: pointer;
-border: none;
-outline: none;
-transition: all 0.2s ease;
-white-space: nowrap;
-}
-.btn:active { transform: scale(0.97); }
-.btn-primary {
-background: linear-gradient(135deg, var(–accent), #e0234a);
-color: #fff;
-}
-.btn-primary:hover { box-shadow: 0 8px 30px rgba(255,45,85,0.4); transform: translateY(-1px); }
-.btn-ghost {
-background: transparent;
-color: var(–text);
-border: 1px solid var(–border2);
-}
-.btn-ghost:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.2); }
-.btn-gradient {
-background: linear-gradient(135deg, var(–accent), var(–accent2), var(–accent3));
-background-size: 200% 200%;
-animation: gradShift 3s ease infinite;
-color: #fff;
-font-weight: 600;
-}
-.btn-gradient:hover { box-shadow: 0 12px 40px rgba(255,45,85,0.5); transform: translateY(-2px); }
-.btn-teal { background: var(–teal); color: #000; font-weight: 600; }
-.btn-teal:hover { box-shadow: 0 8px 30px rgba(48,209,88,0.4); transform: translateY(-1px); }
+    .sidebar {
+      width: 240px;
+      min-height: 100vh;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top:0;
+      left:0;
+      z-index: 50;
+    }
 
-/* Input */
-.input {
-width:100%;
-background: var(–bg3);
-border: 1px solid var(–border2);
-color: var(–text);
-font-family: var(–font-body);
-font-size: 14px;
-border-radius: var(–radius-sm);
-padding: 12px 16px;
-outline: none;
-transition: border-color 0.2s;
-}
-.input:focus { border-color: var(–accent); }
-.input::placeholder { color: var(–muted); }
+    .progress-bar {
+      height: 4px;
+      background: var(--bg3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent3));
+      transition: width 0.3s ease;
+    }
 
-textarea.input { resize: vertical; min-height: 100px; }
+    .video-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    .video-card:hover {
+      border-color: rgba(255,45,85,0.4);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+      transform: translateY(-4px);
+    }
 
-/* Tag/badge */
-.badge {
-display:inline-flex;
-align-items:center;
-gap:5px;
-padding:4px 10px;
-border-radius:999px;
-font-size:12px;
-font-weight:600;
-}
-.badge-red    { background:rgba(255,45,85,0.15);  color:var(–accent); }
-.badge-purple { background:rgba(191,90,242,0.15); color:var(–accent3); }
-.badge-teal   { background:rgba(48,209,88,0.15);  color:var(–teal); }
-.badge-gold   { background:rgba(255,214,10,0.15); color:var(–gold); }
-.badge-blue   { background:rgba(10,132,255,0.15); color:var(–blue); }
+    .stars { color: #ffd60a; letter-spacing: 2px; }
 
-/* Sidebar */
-.sidebar {
-width: 240px;
-min-height: 100vh;
-background: var(–bg2);
-border-right: 1px solid var(–border);
-display: flex;
-flex-direction: column;
-position: fixed;
-top:0;
-left:0;
-z-index: 50;
-}
+    .ticker-wrap { overflow: hidden; white-space: nowrap; }
+    .ticker { display: inline-flex; animation: ticker 20s linear infinite; }
 
-/* Progress bar */
-.progress-bar {
-height: 4px;
-background: var(–bg3);
-border-radius: 2px;
-overflow: hidden;
-}
-.progress-fill {
-height: 100%;
-border-radius: 2px;
-background: linear-gradient(90deg, var(–accent), var(–accent3));
-transition: width 0.3s ease;
-}
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+      .sidebar.open { transform: translateX(0); }
+    }
 
-/* Video card */
-.video-card {
-background: var(–bg2);
-border: 1px solid var(–border);
-border-radius: var(–radius);
-overflow: hidden;
-transition: all 0.3s ease;
-}
-.video-card:hover {
-border-color: rgba(255,45,85,0.4);
-box-shadow: 0 8px 40px rgba(0,0,0,0.4);
-transform: translateY(-4px);
-}
+    .orb {
+      position:absolute;
+      border-radius:50%;
+      filter: blur(80px);
+      pointer-events:none;
+      opacity:0.5;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
 
-/* Stars */
-.stars { color: #ffd60a; letter-spacing: 2px; }
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
 
-/* Ticker */
-.ticker-wrap { overflow: hidden; white-space: nowrap; }
-.ticker { display: inline-flex; animation: ticker 20s linear infinite; }
+    // Mock data
+    const STYLES = [
+      { id: "viral",       label: "Viral Edit",     emoji: "🔥", color: "#ff2d55" },
+      { id: "anime",       label: "Anime",          emoji: "⚡", color: "#bf5af2" },
+      { id: "cinematic",   label: "Cinematic",      emoji: "🎬", color: "#0a84ff" },
+      { id: "sigma",       label: "Sigma",          emoji: "💪", color: "#636366" },
+      { id: "luxury",      label: "Luxury",         emoji: "💎", color: "#ffd60a" },
+      { id: "dark",        label: "Dark Aesthetic", emoji: "🌑", color: "#1c1c1e" },
+      { id: "motivation",  label: "Motivational",   emoji: "🚀", color: "#ff6b35" },
+      { id: "car",         label: "Car Edit",       emoji: "🏎️", color: "#30d158" },
+      { id: "sad",         label: "Sad Edit",       emoji: "🌧️", color: "#5e5ce6" },
+    ];
 
-/* Mobile nav */
-@media (max-width: 768px) {
-.sidebar { transform: translateX(-100%); transition: transform 0.3s; }
-.sidebar.open { transform: translateX(0); }
-}
+    const DURATIONS = [
+      { id: "10s", label: "10s", credits: 1 },
+      { id: "15s", label: "15s", credits: 1 },
+      { id: "30s", label: "30s", credits: 2 },
+      { id: "60s", label: "60s", credits: 4 },
+    ];
 
-/* Glow orbs */
-.orb {
-position:absolute;
-border-radius:50%;
-filter: blur(80px);
-pointer-events:none;
-opacity:0.5;
-}
-`;
+    const MOCK_VIDEOS = [
+      { id: 1, title: "Cyberpunk Girl Tokyo", style: "Cinematic", duration: "15s", credits: 1, date: "2 hours ago", views: "48.2K", viral: 94, thumb: "🎬" },
+      { id: 2, title: "Sigma Mindset Edit",   style: "Sigma",     duration: "30s", credits: 2, date: "Yesterday",  views: "122K", viral: 87, thumb: "💪" },
+      { id: 3, title: "Luxury Car Reveal",    style: "Luxury",    duration: "10s", credits: 1, date: "2 days ago", views: "81K",  viral: 91, thumb: "💎" },
+      { id: 4, title: "Anime Transformation", style: "Anime",     duration: "15s", credits: 1, date: "3 days ago", views: "203K", viral: 96, thumb: "⚡" },
+      { id: 5, title: "Dark Aesthetic Rain",  style: "Dark",      duration: "30s", credits: 2, date: "4 days ago", views: "67K",  viral: 79, thumb: "🌑" },
+      { id: 6, title: "Viral Dance Edit",     style: "Viral",     duration: "60s", credits: 4, date: "5 days ago", views: "1.2M", viral: 99, thumb: "🔥" },
+    ];
 
-const style = document.createElement(“style”);
-style.textContent = css;
-document.head.appendChild(style);
+    const PLANS = [
+      {
+        id: "free", name: "Free", price: 0, popular: false,
+        credits: 10, desc: "Perfect to get started",
+        features: ["10 credits / month", "720p export", "5 styles", "Watermark", "Community support"],
+        missing: ["4K export", "Commercial license", "Priority queue", "API access"],
+      },
+      {
+        id: "pro", name: "Pro", price: 29, popular: true,
+        credits: 200, desc: "For serious creators",
+        features: ["200 credits / month", "4K export", "All 9 styles", "No watermark", "Priority queue", "Commercial license", "Priority support"],
+        missing: ["API access", "White label"],
+      },
+      {
+        id: "unlimited", name: "Unlimited", price: 99, popular: false,
+        credits: -1, desc: "For agencies & studios",
+        features: ["Unlimited credits", "8K export", "All 9 styles", "No watermark", "Priority queue", "Commercial license", "API access", "White label", "Dedicated support"],
+        missing: [],
+      },
+    ];
 
-// ── Icons (inline SVG) ────────────────────────────────────────────────────────
-const Icon = ({ name, size = 18, color = “currentColor” }) => {
-const icons = {
-home: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M3 9.5L12 3l9 6.5V21H15v-5H9v5H3z"/></svg>,
-video: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="M17 9l5-3v12l-5-3V9z"/></svg>,
-plus: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>,
-history: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>,
-settings: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>,
-crown: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M3 17l2-8 4.5 4.5L12 5l2.5 8.5L19 9l2 8H3z"/></svg>,
-bolt: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M13 2L4.5 13H11l-2 9 10.5-12H13l2-9z"/></svg>,
-upload: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-sparkles: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M12 2l2.5 7.5H22l-6.5 4.5 2.5 7.5L12 17l-6 4.5 2.5-7.5L2 9.5h7.5L12 2z"/></svg>,
-play: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><polygon points="5 3 19 12 5 21 5 3"/></svg>,
-download: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-share: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
-tiktok: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34l-.04-8.03a8.27 8.27 0 004.84 1.56V5.38a4.85 4.85 0 01-1.03-.69z"/></svg>,
-check: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>,
-x: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-menu: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
-trending: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
-hashtag: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>,
-mic: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>,
-music: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
-eye: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
-users: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
-zap: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
-star: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
-arrow: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
-film: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="2" y1="17" x2="7" y2="17"/></svg>,
-logout: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-};
-return icons[name] || null;
-};
+    const REVIEWS = [
+      { name: "Jordan K.", handle: "@jordanedits", stars: 5, text: "Generated a video that hit 2M views in 3 days. This tool is absolutely insane.", avatar: "J", color: "#ff2d55" },
+      { name: "Sofia M.", handle: "@sofiacreative", stars: 5, text: "I replaced my entire workflow. What used to take hours now takes 30 seconds.", avatar: "S", color: "#bf5af2" },
+      { name: "Tyler B.", handle: "@tylerbcontent", stars: 5, text: "The cinematic style is unreal. My engagement increased 10x overnight.", avatar: "T", color: "#0a84ff" },
+      { name: "Aisha N.", handle: "@aishanails", stars: 5, text: "Perfect for beauty creators. The anime and luxury styles are incredible.", avatar: "A", color: "#ffd60a" },
+      { name: "Marcus R.", handle: "@marcusfits", stars: 5, text: "The sigma edits are COLD. My gym content went from 500 views to 50K.", avatar: "M", color: "#30d158" },
+      { name: "Luna Z.", handle: "@lunaxedits", stars: 5, text: "Viral score is genius — I only post 90+ videos and they all perform amazingly.", avatar: "L", color: "#ff6b35" },
+    ];
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const STYLES = [
-{ id: “viral”,       label: “Viral Edit”,     emoji: “🔥”, color: “#ff2d55” },
-{ id: “anime”,       label: “Anime”,          emoji: “⚡”, color: “#bf5af2” },
-{ id: “cinematic”,   label: “Cinematic”,      emoji: “🎬”, color: “#0a84ff” },
-{ id: “sigma”,       label: “Sigma”,          emoji: “💪”, color: “#636366” },
-{ id: “luxury”,      label: “Luxury”,         emoji: “💎”, color: “#ffd60a” },
-{ id: “dark”,        label: “Dark Aesthetic”, emoji: “🌑”, color: “#1c1c1e” },
-{ id: “motivation”,  label: “Motivational”,   emoji: “🚀”, color: “#ff6b35” },
-{ id: “car”,         label: “Car Edit”,       emoji: “🏎️”, color: “#30d158” },
-{ id: “sad”,         label: “Sad Edit”,       emoji: “🌧️”, color: “#5e5ce6” },
-];
+    const FAQS = [
+      { q: "How does the AI video generation work?", a: "Our AI animates your image using advanced video diffusion models, adding cinematic camera movements, effects, AI voice narration, trending music, and dynamic subtitles." },
+      { q: "What file formats can I upload?", a: "We support JPG, PNG, WebP, and HEIC images up to 20MB. For best results, use high-resolution portrait images (1080×1920)." },
+      { q: "How long does generation take?", a: "Most videos generate in 30–90 seconds depending on duration and server load. Pro users get priority queue access." },
+      { q: "Can I use the videos commercially?", a: "Pro and Unlimited plans include a full commercial license. Free plan videos include a watermark." },
+      { q: "Do unused credits roll over?", a: "Monthly credits reset each billing cycle. Unlimited plan users never worry about credits." },
+      { q: "Can I cancel anytime?", a: "Yes — no contracts. Cancel anytime and keep access until the end of your billing period." },
+    ];
 
-const DURATIONS = [
-{ id: “10s”, label: “10s”, credits: 1 },
-{ id: “15s”, label: “15s”, credits: 1 },
-{ id: “30s”, label: “30s”, credits: 2 },
-{ id: “60s”, label: “60s”, credits: 4 },
-];
+    // Icon SVG component
+    const Icon = ({ name, size = 18, color = "currentColor" }) => {
+      const icons = {
+        home: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M3 9.5L12 3l9 6.5V21H15v-5H9v5H3z"/></svg>,
+        video: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="M17 9l5-3v12l-5-3V9z"/></svg>,
+        plus: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>,
+        history: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>,
+        settings: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>,
+        crown: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M3 17l2-8 4.5 4.5L12 5l2.5 8.5L19 9l2 8H3z"/></svg>,
+        bolt: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M13 2L4.5 13H11l-2 9 10.5-12H13l2-9z"/></svg>,
+        upload: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+        sparkles: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M12 2l2.5 7.5H22l-6.5 4.5 2.5 7.5L12 17l-6 4.5 2.5-7.5L2 9.5h7.5L12 2z"/></svg>,
+        play: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><polygon points="5 3 19 12 5 21 5 3"/></svg>,
+        download: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+        share: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
+        tiktok: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34l-.04-8.03a8.27 8.27 0 004.84 1.56V5.38a4.85 4.85 0 01-1.03-.69z"/></svg>,
+        check: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>,
+        x: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+        menu: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
+        trending: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
+        hashtag: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>,
+        eye: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+        logout: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+        film: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="2" y1="17" x2="7" y2="17"/></svg>,
+      };
+      return icons[name] || null;
+    };
 
-const MOCK_VIDEOS = [
-{ id: 1, title: “Cyberpunk Girl Tokyo”, style: “Cinematic”, duration: “15s”, credits: 1, date: “2 hours ago”, views: “48.2K”, viral: 94, thumb: “🎬” },
-{ id: 2, title: “Sigma Mindset Edit”,   style: “Sigma”,     duration: “30s”, credits: 2, date: “Yesterday”,  views: “122K”, viral: 87, thumb: “💪” },
-{ id: 3, title: “Luxury Car Reveal”,    style: “Luxury”,    duration: “10s”, credits: 1, date: “2 days ago”, views: “81K”,  viral: 91, thumb: “💎” },
-{ id: 4, title: “Anime Transformation”, style: “Anime”,     duration: “15s”, credits: 1, date: “3 days ago”, views: “203K”, viral: 96, thumb: “⚡” },
-{ id: 5, title: “Dark Aesthetic Rain”,  style: “Dark”,      duration: “30s”, credits: 2, date: “4 days ago”, views: “67K”,  viral: 79, thumb: “🌑” },
-{ id: 6, title: “Viral Dance Edit”,     style: “Viral”,     duration: “60s”, credits: 4, date: “5 days ago”, views: “1.2M”, viral: 99, thumb: “🔥” },
-];
-
-const PLANS = [
-{
-id: “free”, name: “Free”, price: 0, popular: false,
-credits: 10, desc: “Perfect to get started”,
-features: [“10 credits / month”, “720p export”, “5 styles”, “Watermark”, “Community support”],
-missing: [“4K export”, “Commercial license”, “Priority queue”, “API access”],
-},
-{
-id: “pro”, name: “Pro”, price: 29, popular: true,
-credits: 200, desc: “For serious creators”,
-features: [“200 credits / month”, “4K export”, “All 9 styles”, “No watermark”, “Priority queue”, “Commercial license”, “Priority support”],
-missing: [“API access”, “White label”],
-},
-{
-id: “unlimited”, name: “Unlimited”, price: 99, popular: false,
-credits: -1, desc: “For agencies & studios”,
-features: [“Unlimited credits”, “8K export”, “All 9 styles”, “No watermark”, “Priority queue”, “Commercial license”, “API access”, “White label”, “Dedicated support”],
-missing: [],
-},
-];
-
-const REVIEWS = [
-{ name: “Jordan K.”, handle: “@jordanedits”, stars: 5, text: “Generated a video that hit 2M views in 3 days. This tool is absolutely insane. My TikTok blew up overnight.”, avatar: “J”, color: “#ff2d55” },
-{ name: “Sofia M.”, handle: “@sofiacreative”, stars: 5, text: “I replaced my entire video editing workflow. What used to take me hours now takes 30 seconds. 100% worth Pro.”, avatar: “S”, color: “#bf5af2” },
-{ name: “Tyler B.”, handle: “@tylerbcontent”, stars: 5, text: “The cinematic style is unreal. My car edits are getting 10x more engagement since I started using TikTokAI.”, avatar: “T”, color: “#0a84ff” },
-{ name: “Aisha N.”, handle: “@aishanails”, stars: 5, text: “As a beauty creator I was skeptical, but the anime and luxury styles are perfect for my aesthetic. Love it.”, avatar: “A”, color: “#ffd60a” },
-{ name: “Marcus R.”, handle: “@marcusfits”, stars: 5, text: “The sigma edits are COLD. My gym content went from 500 views to 50K consistently. No cap.”, avatar: “M”, color: “#30d158” },
-{ name: “Luna Z.”, handle: “@lunaxedits”, stars: 5, text: “Viral score feature is genius — I only post when it says 90+ and every single video has performed amazingly.”, avatar: “L”, color: “#ff6b35” },
-];
-
-const FAQS = [
-{ q: “How does the AI video generation work?”, a: “Our AI animates your image using advanced video diffusion models, adding cinematic camera movements, effects, AI voice narration, trending music, and dynamic subtitles — all automatically in the style you choose.” },
-{ q: “What file formats can I upload?”, a: “We support JPG, PNG, WebP, and HEIC images up to 20MB. For best results, use high-resolution portrait images (1080×1920 or similar).” },
-{ q: “How long does generation take?”, a: “Most videos generate in 30–90 seconds depending on duration and server load. Pro users get priority queue access for faster generation.” },
-{ q: “Can I use the videos commercially?”, a: “Pro and Unlimited plans include a full commercial license. Free plan videos include a TikTokAI watermark and are for personal use only.” },
-{ q: “Do unused credits roll over?”, a: “Monthly credits reset each billing cycle. Unlimited plan users never worry about credits.” },
-{ q: “Can I cancel anytime?”, a: “Yes — no contracts, cancel anytime from your billing settings. You keep access until the end of your billing period.” },
-];
-
-// ── Helper components ─────────────────────────────────────────────────────────
-const Logo = ({ size = “md” }) => (
-
-  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-    <div style={{
-      width: size === "sm" ? 32 : 40,
-      height: size === "sm" ? 32 : 40,
-      background: "linear-gradient(135deg, var(--accent), var(--accent3))",
-      borderRadius: 10,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      flexShrink: 0,
-    }}>
-      <Icon name="tiktok" size={size === "sm" ? 16 : 20} color="#fff" />
-    </div>
-    <span style={{
-      fontFamily: "var(--font-display)",
-      fontWeight: 800,
-      fontSize: size === "sm" ? 18 : 22,
-      letterSpacing: -0.5,
-      background: "linear-gradient(135deg, #fff, rgba(255,255,255,0.7))",
-      WebkitBackgroundClip: "text",
-      WebkitTextFillColor: "transparent",
-    }}>
-      TikTokAI
-    </span>
-  </div>
-);
-
-const ViralScore = ({ score }) => {
-const color = score >= 90 ? “#30d158” : score >= 75 ? “#ffd60a” : “#ff6b35”;
-return (
-<div style={{ display: “flex”, alignItems: “center”, gap: 8 }}>
-<div style={{ position: “relative”, width: 44, height: 44 }}>
-<svg width="44" height="44" viewBox="0 0 44 44">
-<circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3.5" />
-<circle
-cx=“22”
-cy=“22”
-r=“18”
-fill=“none”
-stroke={color}
-strokeWidth=“3.5”
-strokeDasharray={`${(score / 100) * 113} 113`}
-strokeLinecap=“round”
-transform=“rotate(-90 22 22)”
-/>
-</svg>
-<div style={{
-position: “absolute”,
-inset: 0,
-display: “flex”,
-alignItems: “center”,
-justifyContent: “center”,
-fontSize: 10,
-fontWeight: 700,
-color,
-}}>
-{score}
-</div>
-</div>
-<div>
-<div style={{ fontSize: 11, color: “var(–muted)” }}>Viral Score</div>
-<div style={{ fontSize: 12, fontWeight: 600, color }}>
-{score >= 90 ? “🔥 Hot” : score >= 75 ? “⚡ Rising” : “📈 Growing”}
-</div>
-</div>
-</div>
-);
-};
-
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-const Sidebar = ({ page, setPage, credits, open, setOpen }) => {
-const navItems = [
-{ id: “dashboard”, label: “Dashboard”, icon: “home” },
-{ id: “generate”,  label: “Generate”,  icon: “plus” },
-{ id: “history”,   label: “History”,   icon: “history” },
-{ id: “pricing”,   label: “Pricing”,   icon: “crown” },
-{ id: “settings”,  label: “Settings”,  icon: “settings” },
-];
-
-return (
-<>
-{/* Mobile overlay */}
-{open && (
-<div onClick={() => setOpen(false)} style={{
-position: “fixed”,
-inset: 0,
-background: “rgba(0,0,0,0.6)”,
-zIndex: 49,
-backdropFilter: “blur(4px)”,
-}} />
-)}
-<aside className={`sidebar ${open ? "open" : ""}`}>
-<div style={{ padding: “20px 20px 16px” }}>
-<Logo size="sm" />
-</div>
-
-```
-    {/* Credits pill */}
-    <div style={{
-      margin: "0 12px 16px",
-      padding: "12px",
-      background: "rgba(255,45,85,0.08)",
-      border: "1px solid rgba(255,45,85,0.2)",
-      borderRadius: 12,
-    }}>
-      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>AI Credits</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <Icon name="bolt" size={14} color="var(--accent)" />
-        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20 }}>{credits}</span>
-        <span style={{ fontSize: 11, color: "var(--muted)" }}>/ 200</span>
-      </div>
-      <div className="progress-bar" style={{ marginTop: 8 }}>
-        <div className="progress-fill" style={{ width: `${(credits / 200) * 100}%` }} />
-      </div>
-    </div>
-
-    <nav style={{ flex: 1, padding: "0 8px" }}>
-      {navItems.map(item => (
-        <button
-          key={item.id}
-          onClick={() => {
-            setPage(item.id);
-            setOpen(false);
-          }}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "11px 12px",
-            borderRadius: 10,
-            border: "none",
-            cursor: "pointer",
-            background: page === item.id ? "rgba(255,45,85,0.12)" : "transparent",
-            color: page === item.id ? "var(--accent)" : "var(--muted)",
-            fontFamily: "var(--font-body)",
-            fontSize: 14,
-            fontWeight: page === item.id ? 600 : 400,
-            marginBottom: 2,
-            transition: "all 0.2s",
-            borderLeft: page === item.id ? "2px solid var(--accent)" : "2px solid transparent",
-          }}
-          onMouseEnter={e => {
-            if (page !== item.id) {
-              e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-              e.currentTarget.style.color = "var(--text)";
-            }
-          }}
-          onMouseLeave={e => {
-            if (page !== item.id) {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "var(--muted)";
-            }
-          }}
-        >
-          <Icon name={item.icon} size={16} />
-          {item.label}
-          {item.id === "generate" && (
-            <span style={{
-              marginLeft: "auto",
-              background: "var(--accent)",
-              color: "#fff",
-              fontSize: 10,
-              fontWeight: 700,
-              padding: "2px 7px",
-              borderRadius: 999,
-            }}>
-              NEW
-            </span>
-          )}
-        </button>
-      ))}
-    </nav>
-
-    {/* User */}
-    <div style={{
-      padding: "12px",
-      margin: "8px",
-      borderRadius: 12,
-      border: "1px solid var(--border)",
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-    }}>
-      <div style={{
-        width: 36,
-        height: 36,
-        borderRadius: "50%",
-        background: "linear-gradient(135deg,var(--accent),var(--accent3))",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "var(--font-display)",
-        fontWeight: 700,
-        fontSize: 14,
-      }}>
-        A
-      </div>
-      <div style={{ flex: 1, overflow: "hidden" }}>
-        <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          Alex Creator
+    const Logo = ({ size = "md" }) => (
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{
+          width: size === "sm" ? 32 : 40,
+          height: size === "sm" ? 32 : 40,
+          background: "linear-gradient(135deg, var(--accent), var(--accent3))",
+          borderRadius: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <Icon name="tiktok" size={size === "sm" ? 16 : 20} color="#fff" />
         </div>
-        <div style={{ fontSize: 11, color: "var(--muted)" }}>Pro Plan</div>
-      </div>
-      <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}>
-        <Icon name="logout" size={15} />
-      </button>
-    </div>
-  </aside>
-</>
-```
-
-);
-};
-
-// ── Dashboard page ─────────────────────────────────────────────────────────────
-const DashboardPage = ({ setPage, credits }) => {
-const stats = [
-{ label: “Videos Created”, value: “47”, icon: “video”, color: “var(–accent)” },
-{ label: “Total Views”, value: “2.4M”, icon: “eye”, color: “var(–accent3)” },
-{ label: “Avg Viral Score”, value: “88”, icon: “trending”, color: “var(–teal)” },
-{ label: “Credits Left”, value: credits, icon: “bolt”, color: “var(–gold)” },
-];
-
-return (
-<div style={{ animation: “fadeUp 0.5s ease” }}>
-{/* Header */}
-<div style={{ marginBottom: 32 }}>
-<div style={{ display: “flex”, alignItems: “center”, gap: 12, marginBottom: 8 }}>
-<h1 style={{ fontFamily: “var(–font-display)”, fontWeight: 800, fontSize: 28 }}>Dashboard</h1>
-<span className="badge badge-teal"><Icon name="trending" size={10} /> Trending</span>
-</div>
-<p style={{ color: “var(–muted)” }}>Welcome back, Alex. Your content is performing 📈</p>
-</div>
-
-```
-  {/* Stats */}
-  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 16, marginBottom: 32 }}>
-    {stats.map((s, i) => (
-      <div
-        key={i}
-        className="glass"
-        style={{
-          borderRadius: "var(--radius)",
-          padding: 20,
-          animation: `fadeUp 0.5s ease ${i * 0.08}s both`,
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-          <div style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: `${s.color}22`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}>
-            <Icon name={s.icon} size={16} color={s.color} />
-          </div>
-          <span style={{ fontSize: 11, color: "var(--muted)" }}>This month</span>
-        </div>
-        <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28 }}>{s.value}</div>
-        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{s.label}</div>
-      </div>
-    ))}
-  </div>
-
-  {/* CTA banner */}
-  <div style={{
-    borderRadius: 20,
-    padding: "28px 32px",
-    marginBottom: 32,
-    position: "relative",
-    background: "linear-gradient(135deg,rgba(255,45,85,0.15),rgba(191,90,242,0.1))",
-    border: "1px solid rgba(255,45,85,0.25)",
-    overflow: "hidden",
-  }}>
-    <div className="orb" style={{
-      width: 300,
-      height: 300,
-      right: -80,
-      top: -80,
-      background: "radial-gradient(var(--accent),transparent)",
-    }} />
-    <div style={{
-      position: "relative",
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      flexWrap: "wrap",
-      gap: 16,
-    }}>
-      <div>
-        <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, marginBottom: 6 }}>
-          Ready to go viral? 🔥
-        </div>
-        <div style={{ color: "var(--muted)", fontSize: 14 }}>
-          You have <strong style={{ color: "var(--accent)" }}>{credits} credits</strong> — generate your next hit TikTok
-        </div>
-      </div>
-      <button className="btn btn-gradient" onClick={() => setPage("generate")}>
-        <Icon name="sparkles" size={16} color="#fff" />
-        Generate TikTok
-      </button>
-    </div>
-  </div>
-
-  {/* Recent videos */}
-  <div>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-      <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18 }}>Recent Videos</h2>
-      <button className="btn btn-ghost" style={{ fontSize: 13, padding: "8px 16px" }} onClick={() => setPage("history")}>
-        View all
-      </button>
-    </div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 16 }}>
-      {MOCK_VIDEOS.slice(0, 3).map((v, i) => (
-        <VideoCard key={v.id} video={v} delay={i * 0.08} />
-      ))}
-    </div>
-  </div>
-</div>
-```
-
-);
-};
-
-// ── Video Card ────────────────────────────────────────────────────────────────
-const VideoCard = ({ video, delay = 0 }) => (
-
-  <div className="video-card" style={{ animation: `fadeUp 0.5s ease ${delay}s both` }}>
-    {/* Thumbnail */}
-    <div style={{
-      aspectRatio: "9/16",
-      maxHeight: 200,
-      background: "linear-gradient(135deg,var(--bg3),#1a1a24)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: 48,
-      position: "relative",
-      overflow: "hidden",
-    }}>
-      <span>{video.thumb}</span>
-      <div style={{
-        position: "absolute",
-        inset: 0,
-        background: "linear-gradient(to top,rgba(0,0,0,0.6),transparent 50%)",
-      }} />
-      <div style={{
-        position: "absolute",
-        bottom: 10,
-        left: 10,
-        right: 10,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}>
-        <span className="badge" style={{ background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10 }}>
-          {video.duration}
+        <span style={{
+          fontFamily: "var(--font-display)",
+          fontWeight: 800,
+          fontSize: size === "sm" ? 18 : 22,
+          letterSpacing: -0.5,
+          background: "linear-gradient(135deg, #fff, rgba(255,255,255,0.7))",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}>
+          TikTokAI
         </span>
-        <ViralScore score={video.viral} />
       </div>
-      <div style={{ position: "absolute", top: 10, right: 10 }}>
-        <span className="badge badge-purple" style={{ fontSize: 10 }}>{video.style}</span>
-      </div>
-    </div>
+    );
 
-```
-{/* Info */}
-<div style={{ padding: "14px 16px" }}>
-  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14 }}>{video.title}</div>
-  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-    <div style={{ fontSize: 12, color: "var(--muted)" }}>
-      <Icon name="eye" size={12} /> {video.views} views · {video.date}
-    </div>
-    <div style={{ display: "flex", gap: 6 }}>
-      <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12 }}>
-        <Icon name="download" size={13} />
-      </button>
-      <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12 }}>
-        <Icon name="share" size={13} />
-      </button>
-    </div>
-  </div>
-</div>
-```
-
-  </div>
-);
-
-// ── Generate page ─────────────────────────────────────────────────────────────
-const GeneratePage = ({ credits, setCredits }) => {
-const [image, setImage] = useState(null);
-const [imagePreview, setImagePreview] = useState(null);
-const [prompt, setPrompt] = useState(””);
-const [selectedStyle, setSelectedStyle] = useState(“cinematic”);
-const [selectedDuration, setSelectedDuration] = useState(“15s”);
-const [generating, setGenerating] = useState(false);
-const [progress, setProgress] = useState(0);
-const [progressLabel, setProgressLabel] = useState(””);
-const [result, setResult] = useState(null);
-const [hashtags, setHashtags] = useState([]);
-const [viralTitle, setViralTitle] = useState(””);
-const [viralScore, setViralScore] = useState(0);
-const [dragging, setDragging] = useState(false);
-const fileRef = useRef();
-
-const examplePrompts = [
-“Transform this girl into a cyberpunk influencer walking in Tokyo at night with neon lights and cinematic camera movement”,
-“Make this person look like a billionaire sigma male with luxury cars, mansions and epic bass music”,
-“Convert this photo into an epic anime transformation with glowing eyes and dramatic lighting”,
-“Create a luxury lifestyle edit with yachts, private jets and golden hour cinematics”,
-];
-
-const handleFile = (file) => {
-if (!file || !file.type.startsWith(“image/”)) return;
-setImage(file);
-const reader = new FileReader();
-reader.onload = (e) => setImagePreview(e.target.result);
-reader.readAsDataURL(file);
-};
-
-const handleDrop = (e) => {
-e.preventDefault();
-setDragging(false);
-handleFile(e.dataTransfer.files[0]);
-};
-
-const dur = DURATIONS.find(d => d.id === selectedDuration);
-const costCredits = dur?.credits || 1;
-
-const steps = [
-“Analyzing image with Vision AI…”,
-“Generating cinematic motion paths…”,
-“Applying style effects & color grading…”,
-“Composing AI voice narration…”,
-“Syncing trending soundtrack…”,
-“Rendering dynamic subtitles…”,
-“Exporting 9:16 vertical video…”,
-“Running viral optimization…”,
-];
-
-const generate = async () => {
-if (!imagePreview && !prompt) return;
-if (credits < costCredits) {
-alert(“Not enough credits! Upgrade your plan.”);
-return;
-}
-
-```
-setGenerating(true);
-setProgress(0);
-setResult(null);
-
-// Simulate generation
-for (let i = 0; i < steps.length; i++) {
-  setProgressLabel(steps[i]);
-  await new Promise(r => setTimeout(r, 700 + Math.random() * 600));
-  setProgress(Math.round(((i + 1) / steps.length) * 100));
-}
-
-// Call Claude API for hashtags & title
-try {
-  const style = STYLES.find(s => s.id === selectedStyle)?.label || selectedStyle;
-  const apiPrompt = `Given a TikTok video with this description: "${prompt || "viral TikTok video"}", style: "${style}", duration: "${selectedDuration}":
-```
-
-Return ONLY a JSON object (no markdown, no backticks) with:
-{
-“hashtags”: [“hashtag1”, “hashtag2”, “hashtag3”, “hashtag4”, “hashtag5”, “hashtag6”, “hashtag7”],
-“title”: “A viral TikTok title under 60 chars”,
-“viralScore”: <number 72-99>
-}`;
-
-```
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      messages: [{ role: "user", content: apiPrompt }],
-    }),
-  });
-
-  const data = await res.json();
-  const text = data.content?.map(c => c.text || "").join("").trim().replace(/```json|```/g, "").trim();
-  const parsed = JSON.parse(text);
-  setHashtags(parsed.hashtags || []);
-  setViralTitle(parsed.title || "Your Viral TikTok");
-  setViralScore(parsed.viralScore || 88);
-} catch {
-  setHashtags(["fyp", "viral", "foryou", "trending", "tiktok", "cinematic", "edit"]);
-  setViralTitle("This Edit Will Go VIRAL 🔥");
-  setViralScore(88);
-}
-
-setCredits(c => c - costCredits);
-setGenerating(false);
-setResult({ style: STYLES.find(s => s.id === selectedStyle), duration: selectedDuration });
-```
-
-};
-
-return (
-<div style={{ animation: “fadeUp 0.5s ease” }}>
-<div style={{ marginBottom: 28 }}>
-<h1 style={{ fontFamily: “var(–font-display)”, fontWeight: 800, fontSize: 28, marginBottom: 6 }}>
-Generate TikTok
-</h1>
-<p style={{ color: “var(–muted)” }}>Upload an image, write your vision, and watch AI create magic</p>
-</div>
-
-```
-  <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }}>
-    {/* Left: form */}
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-      {/* Upload */}
-      <div className="glass" style={{ borderRadius: "var(--radius)", padding: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <Icon name="upload" size={16} color="var(--accent)" />
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>Upload Image</span>
+    const ViralScore = ({ score }) => {
+      const color = score >= 90 ? "#30d158" : score >= 75 ? "#ffd60a" : "#ff6b35";
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ position: "relative", width: 44, height: 44 }}>
+            <svg width="44" height="44" viewBox="0 0 44 44">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3.5" />
+              <circle cx="22" cy="22" r="18" fill="none" stroke={color} strokeWidth="3.5" strokeDasharray={`${(score / 100) * 113} 113`} strokeLinecap="round" transform="rotate(-90 22 22)" />
+            </svg>
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color }}>
+              {score}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>Viral Score</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color }}>{score >= 90 ? "🔥 Hot" : score >= 75 ? "⚡ Rising" : "📈 Growing"}</div>
+          </div>
         </div>
+      );
+    };
 
-        <div
-          onClick={() => fileRef.current?.click()}
-          onDragOver={e => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
-          style={{
-            border: `2px dashed ${dragging ? "var(--accent)" : "var(--border2)"}`,
-            borderRadius: 12,
-            padding: "32px 24px",
-            textAlign: "center",
-            cursor: "pointer",
-            background: dragging ? "rgba(255,45,85,0.05)" : "transparent",
-            transition: "all 0.2s",
-          }}
-        >
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={e => handleFile(e.target.files[0])}
-          />
+    const Sidebar = ({ page, setPage, credits, open, setOpen }) => {
+      const navItems = [
+        { id: "dashboard", label: "Dashboard", icon: "home" },
+        { id: "generate", label: "Generate", icon: "plus" },
+        { id: "history", label: "History", icon: "history" },
+        { id: "pricing", label: "Pricing", icon: "crown" },
+        { id: "settings", label: "Settings", icon: "settings" },
+      ];
 
-          {imagePreview ? (
-            <div style={{ position: "relative", display: "inline-block" }}>
-              <img
-                src={imagePreview}
-                alt="preview"
-                style={{
-                  maxHeight: 180,
-                  maxWidth: "100%",
-                  borderRadius: 10,
-                  objectFit: "cover",
-                }}
-              />
-              <button
-                onClick={e => {
-                  e.stopPropagation();
-                  setImage(null);
-                  setImagePreview(null);
-                }}
-                style={{
-                  position: "absolute",
-                  top: -8,
-                  right: -8,
-                  width: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  background: "var(--accent)",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                }}
-              >
-                <Icon name="x" size={12} />
+      return (
+        <>
+          {open && <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 49, backdropFilter: "blur(4px)" }} />}
+          <aside className={`sidebar ${open ? "open" : ""}`}>
+            <div style={{ padding: "20px 20px 16px" }}>
+              <Logo size="sm" />
+            </div>
+            <div style={{ margin: "0 12px 16px", padding: "12px", background: "rgba(255,45,85,0.08)", border: "1px solid rgba(255,45,85,0.2)", borderRadius: 12 }}>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>AI Credits</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Icon name="bolt" size={14} color="var(--accent)" />
+                <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20 }}>{credits}</span>
+                <span style={{ fontSize: 11, color: "var(--muted)" }}>/ 200</span>
+              </div>
+              <div className="progress-bar" style={{ marginTop: 8 }}>
+                <div className="progress-fill" style={{ width: `${(credits / 200) * 100}%` }} />
+              </div>
+            </div>
+            <nav style={{ flex: 1, padding: "0 8px" }}>
+              {navItems.map(item => (
+                <button key={item.id} onClick={() => { setPage(item.id); setOpen(false); }} style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 10, border: "none", cursor: "pointer",
+                  background: page === item.id ? "rgba(255,45,85,0.12)" : "transparent", color: page === item.id ? "var(--accent)" : "var(--muted)",
+                  fontFamily: "var(--font-body)", fontSize: 14, fontWeight: page === item.id ? 600 : 400, marginBottom: 2, transition: "all 0.2s",
+                  borderLeft: page === item.id ? "2px solid var(--accent)" : "2px solid transparent",
+                }}>
+                  <Icon name={item.icon} size={16} />
+                  {item.label}
+                  {item.id === "generate" && <span style={{ marginLeft: "auto", background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999 }}>NEW</span>}
+                </button>
+              ))}
+            </nav>
+            <div style={{ padding: "12px", margin: "8px", borderRadius: 12, border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,var(--accent),var(--accent3))", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14 }}>A</div>
+              <div style={{ flex: 1, overflow: "hidden" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Alex Creator</div>
+                <div style={{ fontSize: 11, color: "var(--muted)" }}>Pro Plan</div>
+              </div>
+              <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}>
+                <Icon name="logout" size={15} />
               </button>
             </div>
-          ) : (
-            <>
-              <div style={{
-                width: 56,
-                height: 56,
-                borderRadius: 16,
-                background: "rgba(255,45,85,0.1)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 12px",
-              }}>
-                <Icon name="upload" size={24} color="var(--accent)" />
-              </div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Drop image here or click to upload</div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>JPG, PNG, WebP up to 20MB</div>
-            </>
-          )}
+          </aside>
+        </>
+      );
+    };
+
+    const VideoCard = ({ video, delay = 0 }) => (
+      <div className="video-card" style={{ animation: `fadeUp 0.5s ease ${delay}s both` }}>
+        <div style={{ aspectRatio: "9/16", maxHeight: 200, background: "linear-gradient(135deg,var(--bg3),#1a1a24)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48, position: "relative", overflow: "hidden" }}>
+          <span>{video.thumb}</span>
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.6),transparent 50%)" }} />
+          <div style={{ position: "absolute", bottom: 10, left: 10, right: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span className="badge" style={{ background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10 }}>{video.duration}</span>
+            <ViralScore score={video.viral} />
+          </div>
+          <div style={{ position: "absolute", top: 10, right: 10 }}>
+            <span className="badge badge-purple" style={{ fontSize: 10 }}>{video.style}</span>
+          </div>
+        </div>
+        <div style={{ padding: "14px 16px" }}>
+          <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14 }}>{video.title}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>
+              <Icon name="eye" size={12} /> {video.views} views · {video.date}
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12 }}>
+                <Icon name="download" size={13} />
+              </button>
+              <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12 }}>
+                <Icon name="share" size={13} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+    );
 
-      {/* Prompt */}
-      <div className="glass" style={{ borderRadius: "var(--radius)", padding: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <Icon name="sparkles" size={16} color="var(--accent3)" />
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>Describe Your Video</span>
+    const DashboardPage = ({ setPage, credits }) => {
+      const stats = [
+        { label: "Videos Created", value: "47", icon: "video", color: "var(--accent)" },
+        { label: "Total Views", value: "2.4M", icon: "eye", color: "var(--accent3)" },
+        { label: "Avg Viral Score", value: "88", icon: "trending", color: "var(--teal)" },
+        { label: "Credits Left", value: credits, icon: "bolt", color: "var(--gold)" },
+      ];
+
+      return (
+        <div style={{ animation: "fadeUp 0.5s ease" }}>
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28 }}>Dashboard</h1>
+              <span className="badge badge-teal"><Icon name="trending" size={10} /> Trending</span>
+            </div>
+            <p style={{ color: "var(--muted)" }}>Welcome back, Alex. Your content is performing 📈</p>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 16, marginBottom: 32 }}>
+            {stats.map((s, i) => (
+              <div key={i} className="glass" style={{ borderRadius: "var(--radius)", padding: 20, animation: `fadeUp 0.5s ease ${i * 0.08}s both` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: `${s.color}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icon name={s.icon} size={16} color={s.color} />
+                  </div>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>This month</span>
+                </div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28 }}>{s.value}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ borderRadius: 20, padding: "28px 32px", marginBottom: 32, position: "relative", background: "linear-gradient(135deg,rgba(255,45,85,0.15),rgba(191,90,242,0.1))", border: "1px solid rgba(255,45,85,0.25)", overflow: "hidden" }}>
+            <div className="orb" style={{ width: 300, height: 300, right: -80, top: -80, background: "radial-gradient(var(--accent),transparent)" }} />
+            <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+              <div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, marginBottom: 6 }}>Ready to go viral? 🔥</div>
+                <div style={{ color: "var(--muted)", fontSize: 14 }}>You have <strong style={{ color: "var(--accent)" }}>{credits} credits</strong> — generate your next hit TikTok</div>
+              </div>
+              <button className="btn btn-gradient" onClick={() => setPage("generate")}>
+                <Icon name="sparkles" size={16} color="#fff" />
+                Generate TikTok
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18 }}>Recent Videos</h2>
+              <button className="btn btn-ghost" style={{ fontSize: 13, padding: "8px 16px" }} onClick={() => setPage("history")}>View all</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 16 }}>
+              {MOCK_VIDEOS.slice(0, 3).map((v, i) => (
+                <VideoCard key={v.id} video={v} delay={i * 0.08} />
+              ))}
+            </div>
+          </div>
         </div>
-        <textarea
-          className="input"
-          rows={4}
-          placeholder="Transform this image into an epic cinematic TikTok with..."
-          value={prompt}
-          onChange={e => setPrompt(e.target.value)}
-        />
-        <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>✨ Example prompts:</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {examplePrompts.map((p, i) => (
-              <button
-                key={i}
-                onClick={() => setPrompt(p)}
-                style={{
-                  textAlign: "left",
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  padding: "8px 12px",
-                  fontSize: 12,
-                  color: "var(--muted)",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  fontFamily: "var(--font-body)",
-                }}
-                onMouseEnter={e => {
-                  e.target.style.borderColor = "rgba(255,45,85,0.4)";
-                  e.target.style.color = "var(--text)";
-                }}
-                onMouseLeave={e => {
-                  e.target.style.borderColor = "var(--border)";
-                  e.target.style.color = "var(--muted)";
-                }}
-              >
-                "{p.slice(0, 65)}..."
+      );
+    };
+
+    const GeneratePage = ({ credits, setCredits }) => {
+      const [imagePreview, setImagePreview] = useState(null);
+      const [prompt, setPrompt] = useState("");
+      const [selectedStyle, setSelectedStyle] = useState("cinematic");
+      const [selectedDuration, setSelectedDuration] = useState("15s");
+      const [generating, setGenerating] = useState(false);
+      const [progress, setProgress] = useState(0);
+      const [progressLabel, setProgressLabel] = useState("");
+      const [result, setResult] = useState(null);
+      const [hashtags, setHashtags] = useState([]);
+      const [viralTitle, setViralTitle] = useState("");
+      const [viralScore, setViralScore] = useState(0);
+      const [dragging, setDragging] = useState(false);
+      const fileRef = useRef();
+
+      const handleFile = (file) => {
+        if (!file || !file.type.startsWith("image/")) return;
+        const reader = new FileReader();
+        reader.onload = (e) => setImagePreview(e.target.result);
+        reader.readAsDataURL(file);
+      };
+
+      const dur = DURATIONS.find(d => d.id === selectedDuration);
+      const costCredits = dur?.credits || 1;
+
+      const steps = ["Analyzing image...", "Generating motion...", "Applying effects...", "Composing narration...", "Syncing soundtrack...", "Rendering subtitles...", "Exporting video...", "Optimizing..."];
+
+      const generate = async () => {
+        if (!imagePreview && !prompt) return;
+        if (credits < costCredits) { alert("Not enough credits!"); return; }
+
+        setGenerating(true);
+        setProgress(0);
+        setResult(null);
+
+        for (let i = 0; i < steps.length; i++) {
+          setProgressLabel(steps[i]);
+          await new Promise(r => setTimeout(r, 700 + Math.random() * 600));
+          setProgress(Math.round(((i + 1) / steps.length) * 100));
+        }
+
+        setHashtags(["fyp", "viral", "foryou", "trending", "tiktok", "cinematic", "edit"]);
+        setViralTitle("This Edit Will Go VIRAL 🔥");
+        setViralScore(88);
+        setCredits(c => c - costCredits);
+        setGenerating(false);
+        setResult({ style: STYLES.find(s => s.id === selectedStyle), duration: selectedDuration });
+      };
+
+      return (
+        <div style={{ animation: "fadeUp 0.5s ease" }}>
+          <div style={{ marginBottom: 28 }}>
+            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, marginBottom: 6 }}>Generate TikTok</h1>
+            <p style={{ color: "var(--muted)" }}>Upload an image, write your vision, and watch AI create magic</p>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+              <div className="glass" style={{ borderRadius: "var(--radius)", padding: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Icon name="upload" size={16} color="var(--accent)" />
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>Upload Image</span>
+                </div>
+
+                <div onClick={() => fileRef.current?.click()} onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }} style={{
+                  border: `2px dashed ${dragging ? "var(--accent)" : "var(--border2)"}`, borderRadius: 12, padding: "32px 24px", textAlign: "center", cursor: "pointer",
+                  background: dragging ? "rgba(255,45,85,0.05)" : "transparent", transition: "all 0.2s",
+                }}>
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => handleFile(e.target.files[0])} />
+
+                  {imagePreview ? (
+                    <div style={{ position: "relative", display: "inline-block" }}>
+                      <img src={imagePreview} alt="preview" style={{ maxHeight: 180, maxWidth: "100%", borderRadius: 10, objectFit: "cover" }} />
+                      <button onClick={e => { e.stopPropagation(); setImagePreview(null); }} style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: "50%", background: "var(--accent)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+                        <Icon name="x" size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(255,45,85,0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                        <Icon name="upload" size={24} color="var(--accent)" />
+                      </div>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>Drop image here or click to upload</div>
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>JPG, PNG, WebP up to 20MB</div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="glass" style={{ borderRadius: "var(--radius)", padding: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <Icon name="sparkles" size={16} color="var(--accent3)" />
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>Describe Your Video</span>
+                </div>
+                <textarea className="input" rows={4} placeholder="Transform this image into an epic cinematic TikTok..." value={prompt} onChange={e => setPrompt(e.target.value)} />
+              </div>
+
+              <div className="glass" style={{ borderRadius: "var(--radius)", padding: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Icon name="film" size={16} color="var(--blue)" />
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>Choose Style</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+                  {STYLES.map(s => (
+                    <button key={s.id} onClick={() => setSelectedStyle(s.id)} style={{
+                      padding: "12px 8px", borderRadius: 12, cursor: "pointer",
+                      border: `2px solid ${selectedStyle === s.id ? s.color : "var(--border)"}`,
+                      background: selectedStyle === s.id ? `${s.color}15` : "transparent",
+                      color: selectedStyle === s.id ? s.color : "var(--muted)",
+                      fontFamily: "var(--font-body)", transition: "all 0.2s",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                    }}>
+                      <span style={{ fontSize: 20 }}>{s.emoji}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600 }}>{s.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="glass" style={{ borderRadius: "var(--radius)", padding: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Icon name="video" size={16} color="var(--teal)" />
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>Duration</span>
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {DURATIONS.map(d => (
+                    <button key={d.id} onClick={() => setSelectedDuration(d.id)} style={{
+                      flex: 1, minWidth: 80, padding: "14px 8px", borderRadius: 12, cursor: "pointer",
+                      border: `2px solid ${selectedDuration === d.id ? "var(--teal)" : "var(--border)"}`,
+                      background: selectedDuration === d.id ? "rgba(48,209,88,0.1)" : "transparent",
+                      color: selectedDuration === d.id ? "var(--teal)" : "var(--muted)",
+                      fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, transition: "all 0.2s",
+                    }}>
+                      <div>{d.label}</div>
+                      <div style={{ fontSize: 11, fontFamily: "var(--font-body)", marginTop: 2, color: selectedDuration === d.id ? "var(--teal)" : "var(--muted)" }}>{d.credits} credit{d.credits > 1 ? "s" : ""}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button className="btn btn-gradient" onClick={generate} disabled={generating} style={{
+                width: "100%", justifyContent: "center", padding: "18px", fontSize: 17,
+                fontFamily: "var(--font-display)", fontWeight: 700, opacity: generating ? 0.7 : 1, cursor: generating ? "not-allowed" : "pointer"
+              }}>
+                {generating ? (
+                  <>
+                    <div style={{ width: 18, height: 18, border: "2.5px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="sparkles" size={18} color="#fff" />
+                    Generate TikTok · {costCredits} credit{costCredits > 1 ? "s" : ""}
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div style={{ position: "sticky", top: 24 }}>
+              <div style={{ background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 24, padding: 20, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <Icon name="play" size={14} color="var(--accent)" />
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14 }}>Live Preview</span>
+                </div>
+
+                <div style={{ margin: "0 auto", width: 160, background: "#000", borderRadius: 28, padding: 6, border: "2px solid #333", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+                  <div style={{ background: "var(--bg3)", borderRadius: 22, aspectRatio: "9/16", overflow: "hidden", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+
+                    {generating ? (
+                      <div style={{ textAlign: "center", padding: 16 }}>
+                        <div style={{ fontSize: 28, marginBottom: 10 }}>{STYLES.find(s => s.id === selectedStyle)?.emoji || "🎬"}</div>
+                        <div className="shimmer" style={{ height: 8, width: "80%", margin: "0 auto 8px", borderRadius: 4 }} />
+                        <div style={{ position: "absolute", bottom: 16, left: 16, right: 16 }}>
+                          <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4 }}>{progressLabel}</div>
+                          <div className="progress-bar">
+                            <div className="progress-fill" style={{ width: `${progress}%` }} />
+                          </div>
+                          <div style={{ fontSize: 10, color: "var(--muted)", textAlign: "right", marginTop: 4 }}>{progress}%</div>
+                        </div>
+                      </div>
+                    ) : result ? (
+                      <div style={{
+                        width: "100%", height: "100%", position: "relative",
+                        background: `linear-gradient(135deg, ${STYLES.find(s => s.id === selectedStyle)?.color}22, #000)`,
+                        display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8,
+                      }}>
+                        <span style={{ fontSize: 40 }}>{STYLES.find(s => s.id === selectedStyle)?.emoji}</span>
+                        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.8)", textAlign: "center", padding: "0 10px", lineHeight: 1.4 }}>{viralTitle}</div>
+                        <div style={{ position: "absolute", bottom: 20, left: 0, right: 0, textAlign: "center" }}>
+                          {hashtags.slice(0, 3).map((h, i) => (
+                            <div key={i} style={{ fontSize: 8, color: "rgba(255,255,255,0.6)" }}>#{h}</div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: "center", padding: 16, color: "var(--muted)" }}>
+                        <Icon name="video" size={28} />
+                        <div style={{ fontSize: 11, marginTop: 8 }}>Preview here</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 12 }}>
+                  {["❤️", "💬", "🔖", "➡️"].map((emoji, i) => (
+                    <div key={i} style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 16 }}>{emoji}</div>
+                      <div style={{ fontSize: 9, color: "var(--muted)" }}>{"48.2K,1.2K,892,Share".split(",")[i]}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {result && (
+                <div className="glass" style={{ borderRadius: "var(--radius)", padding: 20, animation: "fadeUp 0.4s ease" }}>
+                  <div style={{ marginBottom: 14 }}>
+                    <ViralScore score={viralScore} />
+                  </div>
+
+                  {viralTitle && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Viral Title</div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{viralTitle}</div>
+                    </div>
+                  )}
+
+                  {hashtags.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                        <Icon name="hashtag" size={12} /> AI Hashtags
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {hashtags.map((tag, i) => (
+                          <span key={i} className="badge badge-purple" style={{ fontSize: 11 }}>#{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }}>
+                      <Icon name="download" size={15} color="#fff" />
+                      Download MP4
+                    </button>
+                    <button className="btn btn-teal" style={{ width: "100%", justifyContent: "center" }}>
+                      <Icon name="tiktok" size={15} color="#000" />
+                      Export to TikTok
+                    </button>
+                    <button className="btn btn-ghost" style={{ width: "100%", justifyContent: "center" }}>
+                      <Icon name="share" size={15} />
+                      Share
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const HistoryPage = () => {
+      const [filter, setFilter] = useState("all");
+      const styles = ["all", ...STYLES.map(s => s.label)];
+      const filtered = filter === "all" ? MOCK_VIDEOS : MOCK_VIDEOS.filter(v => v.style === filter);
+
+      return (
+        <div style={{ animation: "fadeUp 0.5s ease" }}>
+          <div style={{ marginBottom: 24 }}>
+            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, marginBottom: 6 }}>Video History</h1>
+            <p style={{ color: "var(--muted)" }}>{MOCK_VIDEOS.length} videos created · 2.4M total views</p>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24, overflow: "auto", paddingBottom: 4 }}>
+            {styles.slice(0, 7).map(s => (
+              <button key={s} onClick={() => setFilter(s)} className="btn" style={{
+                padding: "8px 16px", fontSize: 12,
+                background: filter === s ? "var(--accent)" : "rgba(255,255,255,0.04)",
+                color: filter === s ? "#fff" : "var(--muted)",
+                border: filter === s ? "none" : "1px solid var(--border)",
+                borderRadius: 999,
+              }}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
               </button>
             ))}
           </div>
-        </div>
-      </div>
 
-      {/* Style */}
-      <div className="glass" style={{ borderRadius: "var(--radius)", padding: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <Icon name="film" size={16} color="var(--blue)" />
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>Choose Style</span>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
+            {filtered.map((v, i) => (
+              <VideoCard key={v.id} video={v} delay={i * 0.06} />
+            ))}
+          </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-          {STYLES.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setSelectedStyle(s.id)}
-              style={{
-                padding: "12px 8px",
-                borderRadius: 12,
-                cursor: "pointer",
-                border: `2px solid ${selectedStyle === s.id ? s.color : "var(--border)"}`,
-                background: selectedStyle === s.id ? `${s.color}15` : "transparent",
-                color: selectedStyle === s.id ? s.color : "var(--muted)",
-                fontFamily: "var(--font-body)",
-                transition: "all 0.2s",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              <span style={{ fontSize: 20 }}>{s.emoji}</span>
-              <span style={{ fontSize: 12, fontWeight: 600 }}>{s.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      );
+    };
 
-      {/* Duration */}
-      <div className="glass" style={{ borderRadius: "var(--radius)", padding: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <Icon name="video" size={16} color="var(--teal)" />
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>Duration</span>
-        </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {DURATIONS.map(d => (
-            <button
-              key={d.id}
-              onClick={() => setSelectedDuration(d.id)}
-              style={{
-                flex: 1,
-                minWidth: 80,
-                padding: "14px 8px",
-                borderRadius: 12,
-                cursor: "pointer",
-                border: `2px solid ${selectedDuration === d.id ? "var(--teal)" : "var(--border)"}`,
-                background: selectedDuration === d.id ? "rgba(48,209,88,0.1)" : "transparent",
-                color: selectedDuration === d.id ? "var(--teal)" : "var(--muted)",
-                fontFamily: "var(--font-display)",
-                fontWeight: 700,
-                fontSize: 18,
-                transition: "all 0.2s",
-              }}
-            >
-              <div>{d.label}</div>
-              <div style={{
-                fontSize: 11,
-                fontFamily: "var(--font-body)",
-                marginTop: 2,
-                color: selectedDuration === d.id ? "var(--teal)" : "var(--muted)",
-              }}>
-                {d.credits} credit{d.credits > 1 ? "s" : ""}
+    const PricingPage = () => {
+      const [annual, setAnnual] = useState(false);
+
+      return (
+        <div style={{ animation: "fadeUp 0.5s ease" }}>
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 32, marginBottom: 8 }}>Simple, Transparent Pricing</h1>
+            <p style={{ color: "var(--muted)", marginBottom: 20 }}>Start free. Scale as you grow.</p>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 12, background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 6px 6px 16px" }}>
+              <span style={{ fontSize: 14, color: annual ? "var(--muted)" : "var(--text)" }}>Monthly</span>
+              <div onClick={() => setAnnual(a => !a)} style={{ width: 44, height: 24, background: annual ? "var(--teal)" : "var(--bg3)", borderRadius: 999, cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
+                <div style={{ position: "absolute", top: 3, left: annual ? 20 : 3, width: 18, height: 18, background: "#fff", borderRadius: "50%", transition: "left 0.2s", boxShadow: "0 2px 6px rgba(0,0,0,0.3)" }} />
               </div>
-            </button>
-          ))}
-        </div>
-      </div>
+              <span style={{ fontSize: 14, color: annual ? "var(--text)" : "var(--muted)" }}>Annual</span>
+              {annual && <span className="badge badge-teal" style={{ marginLeft: -6 }}>Save 30%</span>}
+            </div>
+          </div>
 
-      {/* Generate CTA */}
-      <button
-        className="btn btn-gradient"
-        onClick={generate}
-        disabled={generating}
-        style={{
-          width: "100%",
-          justifyContent: "center",
-          padding: "18px",
-          fontSize: 17,
-          fontFamily: "var(--font-display)",
-          fontWeight: 700,
-          letterSpacing: 0.3,
-          opacity: generating ? 0.7 : 1,
-          cursor: generating ? "not-allowed" : "pointer",
-        }}
-      >
-        {generating ? (
-          <>
-            <div style={{
-              width: 18,
-              height: 18,
-              border: "2.5px solid rgba(255,255,255,0.3)",
-              borderTopColor: "#fff",
-              borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-            }} />
-            Generating...
-          </>
-        ) : (
-          <>
-            <Icon name="sparkles" size={18} color="#fff" />
-            Generate TikTok · {costCredits} credit{costCredits > 1 ? "s" : ""}
-          </>
-        )}
-      </button>
-    </div>
-
-    {/* Right: preview */}
-    <div style={{ position: "sticky", top: 24 }}>
-      {/* Phone mockup */}
-      <div style={{
-        background: "var(--bg2)",
-        border: "1px solid var(--border)",
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 16,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <Icon name="play" size={14} color="var(--accent)" />
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 14 }}>Live Preview</span>
-        </div>
-
-        {/* Phone */}
-        <div style={{
-          margin: "0 auto",
-          width: 160,
-          background: "#000",
-          borderRadius: 28,
-          padding: 6,
-          border: "2px solid #333",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-        }}>
-          <div style={{
-            background: "var(--bg3)",
-            borderRadius: 22,
-            aspectRatio: "9/16",
-            overflow: "hidden",
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}>
-
-            {generating ? (
-              <div style={{ textAlign: "center", padding: 16 }}>
-                <div style={{ fontSize: 28, marginBottom: 10 }}>
-                  {STYLES.find(s => s.id === selectedStyle)?.emoji || "🎬"}
-                </div>
-                <div className="shimmer" style={{ height: 8, width: "80%", margin: "0 auto 8px", borderRadius: 4 }} />
-                <div className="shimmer" style={{ height: 6, width: "60%", margin: "0 auto", borderRadius: 4 }} />
-                <div style={{ position: "absolute", bottom: 16, left: 16, right: 16 }}>
-                  <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4 }}>{progressLabel}</div>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${progress}%` }} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 20, maxWidth: 1000, margin: "0 auto" }}>
+            {PLANS.map((plan, i) => (
+              <div key={plan.id} style={{
+                background: plan.popular ? "rgba(255,45,85,0.06)" : "var(--bg2)",
+                border: plan.popular ? "2px solid var(--accent)" : "1px solid var(--border)",
+                borderRadius: 24, padding: "28px 24px", position: "relative",
+                animation: `fadeUp 0.5s ease ${i * 0.1}s both`,
+                boxShadow: plan.popular ? "0 0 40px rgba(255,45,85,0.15)" : "none",
+              }}>
+                {plan.popular && (
+                  <div style={{
+                    position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)",
+                    background: "linear-gradient(135deg,var(--accent),var(--accent3))",
+                    color: "#fff", fontSize: 12, fontWeight: 700, padding: "4px 16px", borderRadius: 999
+                  }}>
+                    ⚡ Most Popular
                   </div>
-                  <div style={{ fontSize: 10, color: "var(--muted)", textAlign: "right", marginTop: 4 }}>
-                    {progress}%
+                )}
+
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, marginBottom: 4 }}>{plan.name}</div>
+                  <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 16 }}>{plan.desc}</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 40 }}>
+                      ${annual ? Math.round(plan.price * 0.7) : plan.price}
+                    </span>
+                    {plan.price > 0 && <span style={{ color: "var(--muted)" }}>/mo</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+                    {plan.credits === -1 ? "∞ unlimited credits" : `${plan.credits} credits/month`}
                   </div>
                 </div>
-              </div>
-            ) : result ? (
-              <div style={{
-                width: "100%",
-                height: "100%",
-                position: "relative",
-                background: `linear-gradient(135deg, ${STYLES.find(s => s.id === selectedStyle)?.color}22, #000)`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "column",
-                gap: 8,
-              }}>
-                <span style={{ fontSize: 40 }}>
-                  {STYLES.find(s => s.id === selectedStyle)?.emoji}
-                </span>
-                <div style={{
-                  fontSize: 9,
-                  color: "rgba(255,255,255,0.8)",
-                  textAlign: "center",
-                  padding: "0 10px",
-                  lineHeight: 1.4,
-                }}>
-                  {viralTitle}
-                </div>
-                <div style={{ position: "absolute", bottom: 20, left: 0, right: 0, textAlign: "center" }}>
-                  {hashtags.slice(0, 3).map((h, i) => (
-                    <div key={i} style={{ fontSize: 8, color: "rgba(255,255,255,0.6)" }}>#{h}</div>
+
+                <button className={`btn ${plan.popular ? "btn-primary" : "btn-ghost"}`} style={{ width: "100%", justifyContent: "center", marginBottom: 20, padding: "14px" }}>
+                  {plan.price === 0 ? "Start Free" : "Get Started"}
+                </button>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {plan.features.map((f, j) => (
+                    <div key={j} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(48,209,88,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Icon name="check" size={11} color="var(--teal)" />
+                      </div>
+                      <span style={{ fontSize: 13 }}>{f}</span>
+                    </div>
                   ))}
                 </div>
-                <div style={{ position: "absolute", top: 8, right: 8 }}>
-                  <span style={{
-                    fontSize: 8,
-                    background: "var(--accent)",
-                    color: "#fff",
-                    padding: "2px 5px",
-                    borderRadius: 4,
-                    fontWeight: 700,
-                  }}>
-                    READY
-                  </span>
-                </div>
               </div>
-            ) : (
-              <div style={{ textAlign: "center", padding: 16, color: "var(--muted)" }}>
-                <Icon name="video" size={28} />
-                <div style={{ fontSize: 11, marginTop: 8 }}>Preview here</div>
-              </div>
-            )}
+            ))}
           </div>
         </div>
+      );
+    };
 
-        {/* TikTok UI chrome */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 12 }}>
-          {["❤️", "💬", "🔖", "➡️"].map((emoji, i) => (
-            <div key={i} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 16 }}>{emoji}</div>
-              <div style={{ fontSize: 9, color: "var(--muted)" }}>
-                {["48.2K", "1.2K", "892", "Share"][i]}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Result panel */}
-      {result && (
-        <div className="glass" style={{ borderRadius: "var(--radius)", padding: 20, animation: "fadeUp 0.4s ease" }}>
-          <div style={{ marginBottom: 14 }}>
-            <ViralScore score={viralScore} />
+    const SettingsPage = () => {
+      return (
+        <div style={{ animation: "fadeUp 0.5s ease", maxWidth: 640 }}>
+          <div style={{ marginBottom: 28 }}>
+            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, marginBottom: 6 }}>Settings</h1>
+            <p style={{ color: "var(--muted)" }}>Manage your account and preferences</p>
           </div>
 
-          {viralTitle && (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Viral Title</div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{viralTitle}</div>
+          <div style={{ background: "linear-gradient(135deg,rgba(255,45,85,0.1),rgba(191,90,242,0.08))", border: "1px solid rgba(255,45,85,0.2)", borderRadius: 16, padding: 20, marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <Icon name="crown" size={16} color="var(--gold)" />
+                <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>Pro Plan</span>
+                <span className="badge badge-gold">Active</span>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--muted)" }}>Renews June 11, 2026 · 142 credits remaining</div>
             </div>
-          )}
+            <button className="btn btn-ghost" style={{ fontSize: 13 }}>Manage Billing</button>
+          </div>
+        </div>
+      );
+    };
 
-          {hashtags.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{
-                fontSize: 11,
-                color: "var(--muted)",
-                marginBottom: 8,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
+    const LandingPage = ({ setPage }) => {
+      const features = [
+        { icon: "film", color: "var(--accent)", title: "AI Video Motion", desc: "Cinematic camera movements generated by diffusion AI" },
+        { icon: "sparkles", color: "var(--accent3)", title: "Viral Score AI", desc: "Predict virality before you post — only post winners" },
+        { icon: "hashtag", color: "var(--teal)", title: "Viral Hashtags", desc: "AI generates the perfect hashtag set to maximize reach" },
+      ];
+
+      const stats = [
+        { value: "50M+", label: "Videos Created" },
+        { value: "2.1B", label: "Views Generated" },
+        { value: "94%", label: "Avg Viral Score" },
+        { value: "180+", label: "Countries" },
+      ];
+
+      return (
+        <div style={{ minHeight: "100vh", fontFamily: "var(--font-body)" }}>
+          <nav style={{
+            position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
+            background: "rgba(5,5,7,0.8)", backdropFilter: "blur(20px)",
+            borderBottom: "1px solid var(--border)", padding: "0 32px",
+            display: "flex", alignItems: "center", justifyContent: "space-between", height: 64,
+          }}>
+            <Logo />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-ghost" style={{ fontSize: 13, padding: "9px 18px" }} onClick={() => setPage("dashboard")}>Log in</button>
+              <button className="btn btn-gradient" style={{ fontSize: 13, padding: "9px 18px" }} onClick={() => setPage("generate")}>Start Free</button>
+            </div>
+          </nav>
+
+          <section style={{ paddingTop: 160, paddingBottom: 100, textAlign: "center", position: "relative", overflow: "hidden" }}>
+            <div className="orb" style={{ width: 500, height: 500, left: -100, top: -100, background: "radial-gradient(var(--accent),transparent)" }} />
+
+            <div style={{ position: "relative" }}>
+              <div className="badge badge-red" style={{ marginBottom: 20, display: "inline-flex" }}>
+                <Icon name="bolt" size={12} color="var(--accent)" /> AI-powered TikTok generator
+              </div>
+
+              <h1 style={{
+                fontFamily: "var(--font-display)", fontWeight: 800, lineHeight: 1.1,
+                fontSize: "clamp(44px,7vw,88px)", marginBottom: 24, letterSpacing: -2,
               }}>
-                <Icon name="hashtag" size={12} /> AI Hashtags
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {hashtags.map((tag, i) => (
-                  <span key={i} className="badge badge-purple" style={{ fontSize: 11 }}>
-                    #{tag}
-                  </span>
+                Create Viral AI<br />
+                <span className="grad-text">TikToks in Seconds</span>
+              </h1>
+
+              <p style={{
+                fontSize: "clamp(16px,2vw,20px)", color: "var(--muted)",
+                maxWidth: 580, margin: "0 auto 40px", lineHeight: 1.7,
+              }}>
+                Upload an image. Write a prompt. Get a cinematic, viral-ready TikTok with AI motion, voice, music and effects.
+              </p>
+
+              <button className="btn btn-gradient animate-pulse-glow" onClick={() => setPage("generate")} style={{
+                fontSize: 16, padding: "16px 32px", fontFamily: "var(--font-display)", fontWeight: 700,
+              }}>
+                <Icon name="sparkles" size={18} color="#fff" />
+                Start Creating Free
+              </button>
+            </div>
+          </section>
+
+          <section style={{ padding: "100px 24px", maxWidth: 1100, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 60 }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(28px,4vw,48px)", marginBottom: 12 }}>
+                Everything you need to<br />
+                <span className="grad-text-2">go viral on TikTok</span>
+              </h2>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 20 }}>
+              {features.map((f, i) => (
+                <div key={i} className="glass" style={{
+                  borderRadius: "var(--radius)", padding: 28,
+                  animation: `fadeUp 0.5s ease ${i * 0.07}s both`, transition: "all 0.3s",
+                }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 14, background: `${f.color}18`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+                    <Icon name={f.icon} size={22} color={f.color} />
+                  </div>
+                  <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, marginBottom: 8 }}>{f.title}</div>
+                  <div style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>{f.desc}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section style={{ padding: "80px 24px", background: "var(--bg2)", borderTop: "1px solid var(--border)" }}>
+            <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
+              <div className="stars" style={{ fontSize: 20, marginBottom: 8 }}>★★★★★</div>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,3vw,40px)", marginBottom: 40 }}>
+                Loved by 500K+ creators
+              </h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16 }}>
+                {REVIEWS.slice(0, 3).map((r, i) => (
+                  <div key={i} className="glass" style={{ borderRadius: "var(--radius)", padding: 24, animation: `fadeUp 0.5s ease ${i * 0.07}s both` }}>
+                    <div className="stars" style={{ marginBottom: 10, fontSize: 14 }}>★★★★★</div>
+                    <p style={{ fontSize: 14, lineHeight: 1.7, marginBottom: 16, color: "rgba(255,255,255,0.85)" }}>"{r.text}"</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: r.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14 }}>{r.avatar}</div>
+                      <div style={{ textAlign: "left" }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
+                        <div style={{ color: "var(--muted)", fontSize: 12 }}>{r.handle}</div>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
+          </section>
+
+          <footer style={{ background: "var(--bg2)", borderTop: "1px solid var(--border)", padding: "40px 24px 32px", textAlign: "center" }}>
+            <Logo />
+            <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 12 }}>© 2026 TikTokAI. All rights reserved.</p>
+          </footer>
+        </div>
+      );
+    };
+
+    function App() {
+      const [page, setPage] = useState("landing");
+      const [credits, setCredits] = useState(142);
+      const [sidebarOpen, setSidebarOpen] = useState(false);
+
+      const showDashboard = page !== "landing";
+
+      return (
+        <div style={{ minHeight: "100vh" }}>
+          {showDashboard ? (
+            <div style={{ display: "flex" }}>
+              <Sidebar page={page} setPage={setPage} credits={credits} open={sidebarOpen} setOpen={setSidebarOpen} />
+
+              <main style={{ marginLeft: 240, flex: 1, minHeight: "100vh", background: "var(--bg)", padding: "32px 32px 60px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 20 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <button className="btn btn-ghost" style={{ fontSize: 13, padding: "8px 14px" }} onClick={() => setPage("landing")}>
+                      ← Back to Home
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span className="badge badge-red">
+                      <Icon name="bolt" size={11} color="var(--accent)" /> {credits} credits
+                    </span>
+                    <button className="btn btn-gradient" style={{ padding: "8px 16px", fontSize: 13 }} onClick={() => setPage("pricing")}>
+                      Upgrade
+                    </button>
+                  </div>
+                </div>
+
+                {page === "dashboard" && <DashboardPage setPage={setPage} credits={credits} />}
+                {page === "generate" && <GeneratePage credits={credits} setCredits={setCredits} />}
+                {page === "history" && <HistoryPage />}
+                {page === "pricing" && <PricingPage />}
+                {page === "settings" && <SettingsPage />}
+              </main>
+            </div>
+          ) : (
+            <LandingPage setPage={setPage} />
           )}
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }}>
-              <Icon name="download" size={15} color="#fff" />
-              Download MP4
-            </button>
-            <button className="btn btn-teal" style={{ width: "100%", justifyContent: "center" }}>
-              <Icon name="tiktok" size={15} color="#000" />
-              Export to TikTok
-            </button>
-            <button className="btn btn-ghost" style={{ width: "100%", justifyContent: "center" }}>
-              <Icon name="share" size={15} />
-              Share
-            </button>
-          </div>
         </div>
-      )}
-    </div>
-  </div>
-</div>
-```
+      );
+    }
 
-);
-};
-
-// ── History page ───────────────────────────────────────────────────────────────
-const HistoryPage = () => {
-const [filter, setFilter] = useState(“all”);
-const styles = [“all”, …STYLES.map(s => s.label)];
-const filtered = filter === “all” ? MOCK_VIDEOS : MOCK_VIDEOS.filter(v => v.style === filter);
-
-return (
-<div style={{ animation: “fadeUp 0.5s ease” }}>
-<div style={{ marginBottom: 24 }}>
-<h1 style={{ fontFamily: “var(–font-display)”, fontWeight: 800, fontSize: 28, marginBottom: 6 }}>Video History</h1>
-<p style={{ color: “var(–muted)” }}>{MOCK_VIDEOS.length} videos created · 2.4M total views</p>
-</div>
-
-```
-  {/* Filters */}
-  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24, overflow: "auto", paddingBottom: 4 }}>
-    {styles.slice(0, 7).map(s => (
-      <button
-        key={s}
-        onClick={() => setFilter(s)}
-        className="btn"
-        style={{
-          padding: "8px 16px",
-          fontSize: 12,
-          background: filter === s ? "var(--accent)" : "rgba(255,255,255,0.04)",
-          color: filter === s ? "#fff" : "var(--muted)",
-          border: filter === s ? "none" : "1px solid var(--border)",
-          borderRadius: 999,
-        }}
-      >
-        {s.charAt(0).toUpperCase() + s.slice(1)}
-      </button>
-    ))}
-  </div>
-
-  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
-    {filtered.map((v, i) => (
-      <VideoCard key={v.id} video={v} delay={i * 0.06} />
-    ))}
-  </div>
-</div>
-```
-
-);
-};
-
-// ── Pricing page ───────────────────────────────────────────────────────────────
-const PricingPage = () => {
-const [annual, setAnnual] = useState(false);
-
-return (
-<div style={{ animation: “fadeUp 0.5s ease” }}>
-<div style={{ textAlign: “center”, marginBottom: 40 }}>
-<h1 style={{ fontFamily: “var(–font-display)”, fontWeight: 800, fontSize: 32, marginBottom: 8 }}>
-Simple, Transparent Pricing
-</h1>
-<p style={{ color: “var(–muted)”, marginBottom: 20 }}>Start free. Scale as you grow.</p>
-<div style={{
-display: “inline-flex”,
-alignItems: “center”,
-gap: 12,
-background: “var(–bg2)”,
-border: “1px solid var(–border)”,
-borderRadius: 999,
-padding: “6px 6px 6px 16px”,
-}}>
-<span style={{ fontSize: 14, color: annual ? “var(–muted)” : “var(–text)” }}>Monthly</span>
-<div
-onClick={() => setAnnual(a => !a)}
-style={{
-width: 44,
-height: 24,
-background: annual ? “var(–teal)” : “var(–bg3)”,
-borderRadius: 999,
-cursor: “pointer”,
-position: “relative”,
-transition: “background 0.2s”,
-}}
->
-<div style={{
-position: “absolute”,
-top: 3,
-left: annual ? 20 : 3,
-width: 18,
-height: 18,
-background: “#fff”,
-borderRadius: “50%”,
-transition: “left 0.2s”,
-boxShadow: “0 2px 6px rgba(0,0,0,0.3)”,
-}} />
-</div>
-<span style={{ fontSize: 14, color: annual ? “var(–text)” : “var(–muted)” }}>Annual</span>
-{annual && <span className=“badge badge-teal” style={{ marginLeft: -6 }}>Save 30%</span>}
-</div>
-</div>
-
-```
-  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 20, maxWidth: 1000, margin: "0 auto" }}>
-    {PLANS.map((plan, i) => (
-      <div
-        key={plan.id}
-        style={{
-          background: plan.popular ? "rgba(255,45,85,0.06)" : "var(--bg2)",
-          border: plan.popular ? "2px solid var(--accent)" : "1px solid var(--border)",
-          borderRadius: 24,
-          padding: "28px 24px",
-          position: "relative",
-          animation: `fadeUp 0.5s ease ${i * 0.1}s both`,
-          boxShadow: plan.popular ? "0 0 40px rgba(255,45,85,0.15)" : "none",
-        }}
-      >
-        {plan.popular && (
-          <div style={{
-            position: "absolute",
-            top: -14,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "linear-gradient(135deg,var(--accent),var(--accent3))",
-            color: "#fff",
-            fontSize: 12,
-            fontWeight: 700,
-            padding: "4px 16px",
-            borderRadius: 999,
-          }}>
-            ⚡ Most Popular
-          </div>
-        )}
-
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, marginBottom: 4 }}>
-            {plan.name}
-          </div>
-          <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 16 }}>{plan.desc}</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 40 }}>
-              ${annual ? Math.round(plan.price * 0.7) : plan.price}
-            </span>
-            {plan.price > 0 && <span style={{ color: "var(--muted)" }}>/mo</span>}
-          </div>
-          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
-            {plan.credits === -1 ? "∞ unlimited credits" : `${plan.credits} credits/month`}
-          </div>
-        </div>
-
-        <button
-          className={`btn ${plan.popular ? "btn-primary" : "btn-ghost"}`}
-          style={{ width: "100%", justifyContent: "center", marginBottom: 20, padding: "14px" }}
-        >
-          {plan.price === 0 ? "Start Free" : "Get Started"}
-        </button>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {plan.features.map((f, j) => (
-            <div key={j} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                background: "rgba(48,209,88,0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}>
-                <Icon name="check" size={11} color="var(--teal)" />
-              </div>
-              <span style={{ fontSize: 13 }}>{f}</span>
-            </div>
-          ))}
-          {plan.missing.map((f, j) => (
-            <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, opacity: 0.35 }}>
-              <div style={{
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.05)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}>
-                <Icon name="x" size={11} color="var(--muted)" />
-              </div>
-              <span style={{ fontSize: 13, color: "var(--muted)" }}>{f}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    ))}
-  </div>
-
-  {/* FAQ */}
-  <div style={{ maxWidth: 700, margin: "60px auto 0" }}>
-    <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 24, marginBottom: 24, textAlign: "center" }}>
-      Frequently Asked Questions
-    </h2>
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {FAQS.map((faq, i) => (
-        <FaqItem key={i} q={faq.q} a={faq.a} delay={i * 0.06} />
-      ))}
-    </div>
-  </div>
-</div>
-```
-
-);
-};
-
-const FaqItem = ({ q, a, delay }) => {
-const [open, setOpen] = useState(false);
-return (
-<div
-onClick={() => setOpen(o => !o)}
-style={{
-background: “var(–bg2)”,
-border: “1px solid var(–border)”,
-borderRadius: 14,
-overflow: “hidden”,
-cursor: “pointer”,
-borderColor: open ? “rgba(255,45,85,0.3)” : “var(–border)”,
-animation: `fadeUp 0.5s ease ${delay}s both`,
-transition: “border-color 0.2s”,
-}}
->
-<div style={{ display: “flex”, justifyContent: “space-between”, alignItems: “center”, padding: “16px 20px” }}>
-<span style={{ fontWeight: 500, fontSize: 14 }}>{q}</span>
-<div style={{
-transform: open ? “rotate(45deg)” : “rotate(0)”,
-transition: “transform 0.2s”,
-color: “var(–accent)”,
-}}>
-<Icon name="plus" size={18} />
-</div>
-</div>
-{open && (
-<div style={{
-padding: “0 20px 16px”,
-fontSize: 13,
-color: “var(–muted)”,
-lineHeight: 1.7,
-animation: “fadeIn 0.2s ease”,
-}}>
-{a}
-</div>
-)}
-</div>
-);
-};
-
-// ── Settings page ──────────────────────────────────────────────────────────────
-const SettingsPage = () => {
-const sections = [
-{
-title: “Profile”,
-fields: [
-{ label: “Display Name”, value: “Alex Creator”, type: “text” },
-{ label: “Email”, value: “alex@creator.com”, type: “email” },
-{ label: “TikTok Handle”, value: “@alexcreates”, type: “text” },
-],
-},
-{
-title: “Default Settings”,
-fields: [
-{ label: “Default Style”, value: “Cinematic”, type: “select” },
-{ label: “Default Duration”, value: “15s”, type: “select” },
-{ label: “Auto-add watermark”, value: false, type: “toggle” },
-{ label: “Auto-generate hashtags”, value: true, type: “toggle” },
-],
-},
-];
-
-const [toggles, setToggles] = useState({ watermark: false, hashtags: true });
-
-return (
-<div style={{ animation: “fadeUp 0.5s ease”, maxWidth: 640 }}>
-<div style={{ marginBottom: 28 }}>
-<h1 style={{ fontFamily: “var(–font-display)”, fontWeight: 800, fontSize: 28, marginBottom: 6 }}>Settings</h1>
-<p style={{ color: “var(–muted)” }}>Manage your account and preferences</p>
-</div>
-
-```
-  {/* Plan card */}
-  <div style={{
-    background: "linear-gradient(135deg,rgba(255,45,85,0.1),rgba(191,90,242,0.08))",
-    border: "1px solid rgba(255,45,85,0.2)",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 12,
-  }}>
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        <Icon name="crown" size={16} color="var(--gold)" />
-        <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>Pro Plan</span>
-        <span className="badge badge-gold">Active</span>
-      </div>
-      <div style={{ fontSize: 13, color: "var(--muted)" }}>Renews June 11, 2026 · 142 credits remaining</div>
-    </div>
-    <button className="btn btn-ghost" style={{ fontSize: 13 }}>Manage Billing</button>
-  </div>
-
-  {sections.map((section, si) => (
-    <div key={si} className="glass" style={{ borderRadius: "var(--radius)", padding: 24, marginBottom: 16 }}>
-      <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, marginBottom: 16, fontSize: 16 }}>
-        {section.title}
-      </h3>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {section.fields.map((field, fi) => (
-          <div key={fi} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <label style={{ fontSize: 13, color: "var(--muted)", minWidth: 160 }}>{field.label}</label>
-            {field.type === "toggle" ? (
-              <div
-                onClick={() =>
-                  setToggles(t => ({
-                    ...t,
-                    [field.label.toLowerCase().split(" ").join("")]: !t[field.label.toLowerCase().split(" ").join("")],
-                  }))
-                }
-                style={{
-                  width: 44,
-                  height: 24,
-                  borderRadius: 999,
-                  cursor: "pointer",
-                  background: field.label.includes("hashtag") ? toggles.hashtags : !toggles.watermark ? "var(--teal)" : "var(--bg3)",
-                  position: "relative",
-                  transition: "background 0.2s",
-                }}
-              >
-                <div style={{
-                  position: "absolute",
-                  top: 3,
-                  left: field.label.includes("hashtag") ? (toggles.hashtags ? 20 : 3) : !toggles.watermark ? 20 : 3,
-                  width: 18,
-                  height: 18,
-                  background: "#fff",
-                  borderRadius: "50%",
-                  transition: "left 0.2s",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-                }} />
-              </div>
-            ) : (
-              <input
-                className="input"
-                style={{ maxWidth: 280, fontSize: 13 }}
-                defaultValue={field.value}
-                type={field.type}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  ))}
-
-  <button className="btn btn-primary">Save Changes</button>
-</div>
-```
-
-);
-};
-
-// ── Landing page ───────────────────────────────────────────────────────────────
-const LandingPage = ({ setPage }) => {
-const [activeReview, setActiveReview] = useState(0);
-
-useEffect(() => {
-const t = setInterval(() => setActiveReview(r => (r + 1) % REVIEWS.length), 3000);
-return () => clearInterval(t);
-}, []);
-
-const features = [
-{ icon: “film”, color: “var(–accent)”, title: “AI Video Motion”, desc: “Cinematic camera movements generated by diffusion AI” },
-{ icon: “mic”, color: “var(–accent3)”, title: “AI Voice Narration”, desc: “Natural AI voices powered by ElevenLabs technology” },
-{ icon: “music”, color: “var(–blue)”, title: “Trending Soundtrack”, desc: “Auto-matched royalty-free music based on your style” },
-{ icon: “hashtag”, color: “var(–teal)”, title: “Viral Hashtags”, desc: “AI generates the perfect hashtag set to maximize reach” },
-{ icon: “sparkles”, color: “var(–gold)”, title: “Viral Score AI”, desc: “Predict virality before you post — only post winners” },
-{ icon: “trending”, color: “var(–accent2)”, title: “9:16 Vertical Export”, desc: “Perfect TikTok format, 4K, no watermark on paid plans” },
-];
-
-const stats = [
-{ value: “50M+”, label: “Videos Created” },
-{ value: “2.1B”, label: “Views Generated” },
-{ value: “94%”, label: “Avg Viral Score” },
-{ value: “180+”, label: “Countries” },
-];
-
-return (
-<div style={{ minHeight: “100vh”, fontFamily: “var(–font-body)” }}>
-{/* Nav */}
-<nav style={{
-position: “fixed”,
-top: 0,
-left: 0,
-right: 0,
-zIndex: 100,
-background: “rgba(5,5,7,0.8)”,
-backdropFilter: “blur(20px)”,
-borderBottom: “1px solid var(–border)”,
-padding: “0 32px”,
-display: “flex”,
-alignItems: “center”,
-justifyContent: “space-between”,
-height: 64,
-}}>
-<Logo />
-<div style={{ display: “flex”, gap: 32, fontSize: 14, color: “var(–muted)” }}>
-{[“Features”, “Pricing”, “Reviews”].map(item => (
-<a
-key={item}
-href=”#”
-style={{ textDecoration: “none”, color: “var(–muted)”, transition: “color 0.2s” }}
-onMouseEnter={e => (e.target.style.color = “var(–text)”)}
-onMouseLeave={e => (e.target.style.color = “var(–muted)”)}
->
-{item}
-</a>
-))}
-</div>
-<div style={{ display: “flex”, gap: 10 }}>
-<button className=“btn btn-ghost” style={{ fontSize: 13, padding: “9px 18px” }} onClick={() => setPage(“dashboard”)}>
-Log in
-</button>
-<button className=“btn btn-gradient” style={{ fontSize: 13, padding: “9px 18px” }} onClick={() => setPage(“generate”)}>
-Start Free
-</button>
-</div>
-</nav>
-
-```
-  {/* Hero */}
-  <section style={{
-    paddingTop: 140,
-    paddingBottom: 100,
-    textAlign: "center",
-    position: "relative",
-    overflow: "hidden",
-    padding: "160px 24px 100px",
-  }}>
-    {/* Orbs */}
-    <div className="orb" style={{ width: 500, height: 500, left: -100, top: -100, background: "radial-gradient(var(--accent),transparent)" }} />
-    <div className="orb" style={{ width: 400, height: 400, right: -80, top: 50, background: "radial-gradient(var(--accent3),transparent)" }} />
-    <div className="orb" style={{
-      width: 300,
-      height: 300,
-      left: "50%",
-      top: "60%",
-      background: "radial-gradient(var(--blue),transparent)",
-      transform: "translateX(-50%)",
-    }} />
-
-    <div style={{ position: "relative" }}>
-      <div className="badge badge-red" style={{ marginBottom: 20, display: "inline-flex" }}>
-        <Icon name="bolt" size={12} color="var(--accent)" /> AI-powered TikTok generator
-      </div>
-
-      <h1 style={{
-        fontFamily: "var(--font-display)",
-        fontWeight: 800,
-        lineHeight: 1.1,
-        fontSize: "clamp(44px,7vw,88px)",
-        marginBottom: 24,
-        letterSpacing: -2,
-      }}>
-        Create Viral AI<br />
-        <span className="grad-text">TikToks in Seconds</span>
-      </h1>
-
-      <p style={{
-        fontSize: "clamp(16px,2vw,20px)",
-        color: "var(--muted)",
-        maxWidth: 580,
-        margin: "0 auto 40px",
-        lineHeight: 1.7,
-      }}>
-        Upload an image. Write a prompt. Get a cinematic, viral-ready TikTok
-        with AI motion, voice, music and trending effects — automatically.
-      </p>
-
-      <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginBottom: 48 }}>
-        <button className="btn btn-gradient animate-pulse-glow" onClick={() => setPage("generate")} style={{
-          fontSize: 16,
-          padding: "16px 32px",
-          fontFamily: "var(--font-display)",
-          fontWeight: 700,
-        }}>
-          <Icon name="sparkles" size={18} color="#fff" />
-          Start Creating Free
-        </button>
-        <button className="btn btn-ghost" style={{ fontSize: 16, padding: "16px 32px" }}>
-          <Icon name="play" size={18} color="var(--text)" />
-          Watch Demo
-        </button>
-      </div>
-
-      {/* Phone mockups */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
-        {[
-          { style: "Cinematic", emoji: "🎬", color: "#0a84ff", score: 96 },
-          { style: "Viral Edit", emoji: "🔥", color: "#ff2d55", score: 99 },
-          { style: "Anime", emoji: "⚡", color: "#bf5af2", score: 93 },
-        ].map((item, i) => (
-          <div
-            key={i}
-            className="animate-float"
-            style={{
-              animationDelay: `${i * 0.7}s`,
-              background: "#000",
-              borderRadius: 28,
-              padding: 6,
-              border: "2px solid #222",
-              boxShadow: `0 30px 80px rgba(0,0,0,0.6), 0 0 40px ${item.color}33`,
-              width: 120,
-            }}
-          >
-            <div style={{
-              background: `linear-gradient(160deg,${item.color}33,#000)`,
-              borderRadius: 22,
-              aspectRatio: "9/16",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              position: "relative",
-              overflow: "hidden",
-            }}>
-              <span style={{ fontSize: 36 }}>{item.emoji}</span>
-              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.7)", marginTop: 6, fontWeight: 600 }}>
-                {item.style}
-              </div>
-              <div style={{ position: "absolute", bottom: 12, left: 0, right: 0, textAlign: "center" }}>
-                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)" }}>Viral Score</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: item.color }}>{item.score}</div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  {/* Stats ticker */}
-  <div style={{
-    background: "var(--bg2)",
-    borderTop: "1px solid var(--border)",
-    borderBottom: "1px solid var(--border)",
-    padding: "20px 0",
-    overflow: "hidden",
-  }}>
-    <div className="ticker-wrap">
-      <div className="ticker" style={{ gap: 48 }}>
-        {[...stats, ...stats].map((s, i) => (
-          <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-            <span style={{
-              fontFamily: "var(--font-display)",
-              fontWeight: 800,
-              fontSize: 22,
-              color: "var(--accent)",
-            }}>
-              {s.value}
-            </span>
-            <span style={{ color: "var(--muted)", fontSize: 13 }}>{s.label}</span>
-            <span style={{ color: "var(--border2)", fontSize: 20, marginLeft: 12 }}>·</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-
-  {/* Features */}
-  <section style={{ padding: "100px 24px", maxWidth: 1100, margin: "0 auto" }}>
-    <div style={{ textAlign: "center", marginBottom: 60 }}>
-      <h2 style={{
-        fontFamily: "var(--font-display)",
-        fontWeight: 800,
-        fontSize: "clamp(28px,4vw,48px)",
-        marginBottom: 12,
-      }}>
-        Everything you need to<br />
-        <span className="grad-text-2">go viral on TikTok</span>
-      </h2>
-      <p style={{ color: "var(--muted)", maxWidth: 500, margin: "0 auto" }}>
-        One platform. All the AI tools a creator needs to dominate TikTok.
-      </p>
-    </div>
-
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 20 }}>
-      {features.map((f, i) => (
-        <div
-          key={i}
-          className="glass"
-          style={{
-            borderRadius: "var(--radius)",
-            padding: 28,
-            animation: `fadeUp 0.5s ease ${i * 0.07}s both`,
-            transition: "all 0.3s",
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.borderColor = f.color + "66";
-            e.currentTarget.style.transform = "translateY(-4px)";
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.borderColor = "var(--border)";
-            e.currentTarget.style.transform = "";
-          }}
-        >
-          <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: 14,
-            background: `${f.color}18`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 16,
-          }}>
-            <Icon name={f.icon} size={22} color={f.color} />
-          </div>
-          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, marginBottom: 8 }}>
-            {f.title}
-          </div>
-          <div style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>{f.desc}</div>
-        </div>
-      ))}
-    </div>
-  </section>
-
-  {/* Reviews */}
-  <section style={{
-    padding: "80px 24px",
-    background: "var(--bg2)",
-    borderTop: "1px solid var(--border)",
-    borderBottom: "1px solid var(--border)",
-  }}>
-    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ textAlign: "center", marginBottom: 48 }}>
-        <div className="stars" style={{ fontSize: 20, marginBottom: 8 }}>★★★★★</div>
-        <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,3vw,40px)" }}>
-          Loved by 500K+ creators
-        </h2>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 16 }}>
-        {REVIEWS.map((r, i) => (
-          <div
-            key={i}
-            className="glass"
-            style={{
-              borderRadius: "var(--radius)",
-              padding: 24,
-              animation: `fadeUp 0.5s ease ${i * 0.07}s both`,
-              transition: "all 0.3s",
-            }}
-          >
-            <div className="stars" style={{ marginBottom: 10, fontSize: 14 }}>★★★★★</div>
-            <p style={{ fontSize: 14, lineHeight: 1.7, marginBottom: 16, color: "rgba(255,255,255,0.85)" }}>
-              "{r.text}"
-            </p>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: r.color,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 700,
-                fontSize: 14,
-              }}>
-                {r.avatar}
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 13 }}>{r.name}</div>
-                <div style={{ color: "var(--muted)", fontSize: 12 }}>{r.handle}</div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  {/* CTA section */}
-  <section style={{ padding: "100px 24px", textAlign: "center" }}>
-    <div style={{ position: "relative", maxWidth: 700, margin: "0 auto" }}>
-      <div className="orb" style={{
-        width: 400,
-        height: 400,
-        left: "50%",
-        top: "50%",
-        background: "radial-gradient(var(--accent),transparent)",
-        transform: "translate(-50%,-50%)",
-      }} />
-      <div style={{ position: "relative" }}>
-        <h2 style={{
-          fontFamily: "var(--font-display)",
-          fontWeight: 800,
-          fontSize: "clamp(32px,5vw,64px)",
-          marginBottom: 20,
-          lineHeight: 1.1,
-        }}>
-          Your next viral video<br />
-          starts <span className="grad-text">right now</span>
-        </h2>
-        <p style={{ color: "var(--muted)", marginBottom: 36, fontSize: 17 }}>
-          Join 500,000+ creators using TikTokAI. Free to start.
-        </p>
-        <button className="btn btn-gradient animate-pulse-glow" onClick={() => setPage("generate")} style={{
-          fontSize: 17,
-          padding: "18px 40px",
-          fontFamily: "var(--font-display)",
-          fontWeight: 700,
-        }}>
-          <Icon name="sparkles" size={20} color="#fff" />
-          Create Your First TikTok Free
-        </button>
-      </div>
-    </div>
-  </section>
-
-  {/* Footer */}
-  <footer style={{
-    background: "var(--bg2)",
-    borderTop: "1px solid var(--border)",
-    padding: "40px 24px 32px",
-  }}>
-    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 24, marginBottom: 32 }}>
-        <div>
-          <Logo />
-          <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 12, maxWidth: 260 }}>
-            The world's fastest AI TikTok generator. Powered by cutting-edge video AI.
-          </p>
-        </div>
-        {[
-          { title: "Product", items: ["Features", "Pricing", "Changelog", "Roadmap"] },
-          { title: "Company", items: ["About", "Blog", "Careers", "Press"] },
-          { title: "Legal", items: ["Privacy", "Terms", "Cookies", "DMCA"] },
-        ].map(col => (
-          <div key={col.title}>
-            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--text)" }}>
-              {col.title}
-            </div>
-            {col.items.map(item => (
-              <div key={item} style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8, cursor: "pointer" }}>
-                {item}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-      <div style={{
-        borderTop: "1px solid var(--border)",
-        paddingTop: 24,
-        display: "flex",
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: 12,
-        fontSize: 12,
-        color: "var(--muted)",
-      }}>
-        <span>© 2026 TikTokAI. All rights reserved.</span>
-        <span>Made with ❤️ for creators worldwide</span>
-      </div>
-    </div>
-  </footer>
-</div>
-```
-
-);
-};
-
-// ── App Shell ─────────────────────────────────────────────────────────────────
-export default function App() {
-const [page, setPage] = useState(“landing”);
-const [credits, setCredits] = useState(142);
-const [sidebarOpen, setSidebarOpen] = useState(false);
-
-const showDashboard = page !== “landing”;
-
-return (
-<div style={{ minHeight: “100vh” }}>
-{showDashboard ? (
-<div style={{ display: “flex” }}>
-<Sidebar page={page} setPage={setPage} credits={credits} open={sidebarOpen} setOpen={setSidebarOpen} />
-
-```
-      <main style={{
-        marginLeft: 240,
-        flex: 1,
-        minHeight: "100vh",
-        background: "var(--bg)",
-        padding: "32px 32px 60px",
-      }}>
-        {/* Top bar */}
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 32,
-          borderBottom: "1px solid var(--border)",
-          paddingBottom: 20,
-        }}>
-          <button className="btn btn-ghost" style={{ padding: "8px", display: "none" }} onClick={() => setSidebarOpen(true)}>
-            <Icon name="menu" size={18} />
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button className="btn btn-ghost" style={{ fontSize: 13, padding: "8px 14px" }} onClick={() => setPage("landing")}>
-              ← Back to Home
-            </button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span className="badge badge-red">
-              <Icon name="bolt" size={11} color="var(--accent)" /> {credits} credits
-            </span>
-            <button className="btn btn-gradient" style={{ padding: "8px 16px", fontSize: 13 }} onClick={() => setPage("pricing")}>
-              Upgrade
-            </button>
-          </div>
-        </div>
-
-        {/* Page content */}
-        {page === "dashboard" && <DashboardPage setPage={setPage} credits={credits} />}
-        {page === "generate" && <GeneratePage credits={credits} setCredits={setCredits} />}
-        {page === "history" && <HistoryPage />}
-        {page === "pricing" && <PricingPage />}
-        {page === "settings" && <SettingsPage />}
-      </main>
-    </div>
-  ) : (
-    <LandingPage setPage={setPage} />
-  )}
-</div>
-```
-
-);
-}
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
